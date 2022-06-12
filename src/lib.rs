@@ -9,8 +9,8 @@ enum StateMachine {
     Chunk4(),
 }
 
-enum AsyncResult {
-    Ready,
+enum AsyncResult<T> {
+    Ready(T),
     NotReady,
 }
 
@@ -21,7 +21,7 @@ fn executor() {
     */
 }
 
-fn write_bytes_new_file(state: &mut StateMachine) -> AsyncResult {
+fn write_bytes_new_file(state: &mut StateMachine) -> AsyncResult<()> {
     match state {
         Chunk0() => {
             let extension = ".log";
@@ -53,6 +53,6 @@ fn write_bytes_new_file(state: &mut StateMachine) -> AsyncResult {
             }
             return AsyncResult::NotReady;
         }
-        chunk4 => return AsyncResult::Ready,
+        chunk4 => return AsyncResult::Ready(()),
     }
 }
