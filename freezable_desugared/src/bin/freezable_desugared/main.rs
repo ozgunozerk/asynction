@@ -1,51 +1,47 @@
 use freezable_desugared::{DesugaredFreezable, FreezableComplex, FreezableGenerator4};
+use std::fmt::Debug;
+
+fn call_unfreeze<T>(freezable: &mut T)
+where
+    T: DesugaredFreezable,
+    <T as DesugaredFreezable>::Output: Debug,
+{
+    println!("- calling `unfreeze` on the Freezable");
+    let mut counter = 1;
+    while let Ok(state) = freezable.unfreeze() {
+        println!("Call #{counter}: {state:?}");
+        counter += 1;
+    }
+}
+
+fn call_cancel_randomly<T>(freezable: &mut T)
+where
+    T: DesugaredFreezable,
+    <T as DesugaredFreezable>::Output: Debug,
+{
+    println!("- calling `cancel` in a random state");
+    println!("Call #1: {:?}", freezable.unfreeze());
+    println!("Call #2: {:?}", freezable.unfreeze());
+    println!("Canceling the Freezable!");
+    freezable.cancel();
+    println!("Call #3: {:?}", freezable.unfreeze());
+    println!("Call #4: {:?}", freezable.unfreeze());
+}
 
 fn generator_example() {
-    println!("- 1st Scenario -> Calling `unfreeze` on the Freezable");
-    println!("*************");
-    let mut my_iter = FreezableGenerator4::start(5);
-    println!("First call: {:?}", my_iter.unfreeze());
-    println!("Second call: {:?}", my_iter.unfreeze());
-    println!("Third call: {:?}", my_iter.unfreeze());
-    println!("Fourth call: {:?}", my_iter.unfreeze());
-    println!("Fifth call: {:?}", my_iter.unfreeze());
-    println!("Sixth call: {:?}", my_iter.unfreeze());
-
-    println!();
-
-    println!("- 2nd Scenario -> Calling `cancel` in a random state");
-    println!("*************");
-    let mut my_second_iter = FreezableGenerator4::start(10);
-    println!("First call: {:?}", my_second_iter.unfreeze());
-    println!("Second call: {:?}", my_second_iter.unfreeze());
-    println!("Canceling the Freezable!");
-    my_second_iter.cancel();
-    println!("Third call: {:?}", my_second_iter.unfreeze());
-    println!("Fourth call: {:?}", my_second_iter.unfreeze());
+    let mut generator_5 = FreezableGenerator4::start(5);
+    call_unfreeze(&mut generator_5);
+    println!("********");
+    let mut generator_10 = FreezableGenerator4::start(5);
+    call_cancel_randomly(&mut generator_10);
 }
 
 fn complex_example() {
-    println!("- 1st Scenario -> Calling `unfreeze` on the Freezable");
-    println!("*************");
-    let mut my_iter = FreezableComplex::start(5);
-    println!("First call: {:?}", my_iter.unfreeze());
-    println!("Second call: {:?}", my_iter.unfreeze());
-    println!("Third call: {:?}", my_iter.unfreeze());
-    println!("Fourth call: {:?}", my_iter.unfreeze());
-    println!("Fifth call: {:?}", my_iter.unfreeze());
-    println!("Sixth call: {:?}", my_iter.unfreeze());
-
-    println!();
-
-    println!("- 2nd Scenario -> Calling `cancel` in a random state");
-    println!("*************");
-    let mut my_second_iter = FreezableComplex::start(10);
-    println!("First call: {:?}", my_second_iter.unfreeze());
-    println!("Second call: {:?}", my_second_iter.unfreeze());
-    println!("Canceling the Freezable!");
-    my_second_iter.cancel();
-    println!("Third call: {:?}", my_second_iter.unfreeze());
-    println!("Fourth call: {:?}", my_second_iter.unfreeze());
+    let mut complex_5 = FreezableComplex::start(5);
+    call_unfreeze(&mut complex_5);
+    println!("********");
+    let mut complex_10 = FreezableComplex::start(5);
+    call_cancel_randomly(&mut complex_10);
 }
 
 fn main() {
@@ -53,6 +49,7 @@ fn main() {
     generator_example();
 
     println!();
+
     println!("RUNNING THE COMPLEX EXAMPLE:");
     complex_example();
 }
