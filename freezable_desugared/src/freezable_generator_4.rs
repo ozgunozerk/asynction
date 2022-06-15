@@ -1,6 +1,7 @@
 //! An example of a `DesugaredFreezable` function:
 //! it will generate 4 numbers in a sequence,
 //! but will freeze itself after generating each number
+//! check out `freezable_complex.rs` for a more slightly more complex example
 //!
 //! Original Code:
 //! ```ignore
