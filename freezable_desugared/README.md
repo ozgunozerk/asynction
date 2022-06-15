@@ -1,6 +1,13 @@
-# Freezable
+# Freezable Desugared
 
 **A demonstration of how one can implement a function that is Freezable, and can continue from where it is left off.**
+**This library's aim is to show the desugared version of a such function (uncover the code that is generated for the compiler).**
+
+*Bear in mind the following:* this library aims to inspect what happens behind the scenes, and focuses at the `desugared version`,
+it will not be ergonomic to write a function for this library.
+
+*In the `freezable` crate (not available yet), I will also provide the library for converting any function to its `freezable`*
+*version via a procedural macro. So, it will make more sense to write a function for that library.*
 
 ### Why you should care?
 
