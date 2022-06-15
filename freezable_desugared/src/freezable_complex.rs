@@ -25,6 +25,10 @@
 
 use crate::{DesugaredFreezable, FreezableError, FreezableState};
 
+/// State Machine for our Freezable that will run 3 chunks of code
+/// first state is for initial state
+/// `Chunk1`, `Chunk2`, and `Chunk3` states are for 3 chunks of code
+/// and extra 2 for `Finished` and `Cancelled` states
 pub enum FreezableComplex {
     Chunk0(u8),
     Chunk1(u8),
@@ -76,4 +80,37 @@ impl DesugaredFreezable for FreezableComplex {
     fn is_cancelled(&self) -> bool {
         return matches!(self, FreezableComplex::Cancelled);
     }
+}
+
+#[test]
+fn cancel_test() {
+    let mut complex_5 = FreezableComplex::start(5);
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.is_cancelled(), false);
+    complex_5.cancel();
+    assert_eq!(complex_5.is_cancelled(), true);
+}
+
+#[test]
+fn unfreeze_test() {
+    let mut complex_5 = FreezableComplex::start(5);
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(
+        complex_5.unfreeze(),
+        Ok(FreezableState::Finished("24 a rando".to_string()))
+    );
+    assert_eq!(complex_5.unfreeze(), Err(FreezableError::AlreadyFinished));
+}
+
+#[test]
+fn unfreeze_after_cancel_test() {
+    let mut complex_5 = FreezableComplex::start(5);
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    complex_5.cancel();
+    assert_eq!(complex_5.unfreeze(), Err(FreezableError::Cancelled));
+    assert_eq!(complex_5.unfreeze(), Err(FreezableError::Cancelled));
 }

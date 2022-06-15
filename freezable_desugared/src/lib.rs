@@ -45,14 +45,14 @@ pub trait DesugaredFreezable {
 /// Finished means, if we call the `unfreeze` operation, it will return an error
 /// Finished state should always have the result ready in it
 /// if there is nothing to be returned, then it should be simply `()`
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FreezableState<T> {
     Finished(T),
     Frozen(Option<T>),
 }
 
 /// Potential errors for our Freezable
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FreezableError {
     Cancelled,
     AlreadyFinished,

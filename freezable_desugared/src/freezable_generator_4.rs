@@ -81,3 +81,33 @@ impl DesugaredFreezable for FreezableGenerator4 {
         return matches!(self, FreezableGenerator4::Cancelled);
     }
 }
+
+#[test]
+fn cancel_test() {
+    let mut generator_5 = FreezableGenerator4::start(5);
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(6))));
+    assert_eq!(generator_5.is_cancelled(), false);
+    generator_5.cancel();
+    assert_eq!(generator_5.is_cancelled(), true);
+}
+
+#[test]
+fn unfreeze_test() {
+    let mut generator_5 = FreezableGenerator4::start(5);
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(6))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(7))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Finished(8)));
+    assert_eq!(generator_5.unfreeze(), Err(FreezableError::AlreadyFinished));
+}
+
+#[test]
+fn unfreeze_after_cancel_test() {
+    let mut generator_5 = FreezableGenerator4::start(5);
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(6))));
+    generator_5.cancel();
+    assert_eq!(generator_5.unfreeze(), Err(FreezableError::Cancelled));
+    assert_eq!(generator_5.unfreeze(), Err(FreezableError::Cancelled));
+}
