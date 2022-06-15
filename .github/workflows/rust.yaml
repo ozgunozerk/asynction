@@ -1,0 +1,107 @@
+name: Rust
+
+on:
+  push:
+    paths-ignore:
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  cargo-fmt:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      - name: Configure cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  cargo-clippy:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - macos-11
+          - windows-2022
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      - name: Configure cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: cargo clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          args: --all-targets -- -D warnings
+        if: runner.os == 'macOS'
+
+  cargo-test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - macos-11
+          - windows-2022
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      - name: Configure cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
