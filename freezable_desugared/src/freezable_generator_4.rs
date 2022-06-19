@@ -78,7 +78,7 @@ impl DesugaredFreezable for FreezableGenerator4 {
     }
 
     fn is_cancelled(&self) -> bool {
-        return matches!(self, FreezableGenerator4::Cancelled);
+        matches!(self, FreezableGenerator4::Cancelled)
     }
 }
 
@@ -87,9 +87,9 @@ fn cancel_test() {
     let mut generator_5 = FreezableGenerator4::start(5);
     assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));
     assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(6))));
-    assert_eq!(generator_5.is_cancelled(), false);
+    assert!(!generator_5.is_cancelled());
     generator_5.cancel();
-    assert_eq!(generator_5.is_cancelled(), true);
+    assert!(generator_5.is_cancelled());
 }
 
 #[test]

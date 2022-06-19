@@ -10,7 +10,14 @@ on:
 
 jobs:
   cargo-fmt:
-    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - macos-11
+          - windows-2022
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -71,7 +78,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-targets -- -D warnings
-        if: runner.os == 'macOS'
 
   cargo-test:
     strategy:
