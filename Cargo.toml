@@ -1,3 +1,8 @@
+[workspace]
+members = [
+    "freezable_desugared"
+]
+
 [package]
 name = "asynction"
 version = "0.1.0"
