@@ -78,7 +78,7 @@ impl DesugaredFreezable for FreezableComplex {
         *self = FreezableComplex::Cancelled
     }
     fn is_cancelled(&self) -> bool {
-        return matches!(self, FreezableComplex::Cancelled);
+        matches!(self, FreezableComplex::Cancelled)
     }
 }
 

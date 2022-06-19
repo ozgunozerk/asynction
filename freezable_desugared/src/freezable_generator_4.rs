@@ -78,7 +78,7 @@ impl DesugaredFreezable for FreezableGenerator4 {
     }
 
     fn is_cancelled(&self) -> bool {
-        return matches!(self, FreezableGenerator4::Cancelled);
+        matches!(self, FreezableGenerator4::Cancelled)
     }
 }
 
