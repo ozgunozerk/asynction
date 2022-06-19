@@ -87,9 +87,9 @@ fn cancel_test() {
     let mut complex_5 = FreezableComplex::start(5);
     assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
     assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
-    assert_eq!(complex_5.is_cancelled(), false);
+    assert!(!complex_5.is_cancelled());
     complex_5.cancel();
-    assert_eq!(complex_5.is_cancelled(), true);
+    assert!(complex_5.is_cancelled());
 }
 
 #[test]
