@@ -12,6 +12,7 @@ mod freezable_generator_4;
 
 pub use freezable_complex::FreezableComplex;
 pub use freezable_generator_4::FreezableGenerator4;
+use std::fmt::{Debug, Display};
 
 /// Freezable trait, but Desugared :)
 ///
@@ -25,7 +26,7 @@ pub use freezable_generator_4::FreezableGenerator4;
 /// Refer to `freezable_complex.rs` and `freezable_generator_4.rs` to see `freeze()` calls in the
 /// imaginary original code (remember, this code is the desugared one of the imaginary original one)
 pub trait DesugaredFreezable {
-    type Output;
+    type Output: Debug + Display;
 
     /// should generate the next item in the sequence, then it will freeze itself again
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError>;
@@ -46,9 +47,24 @@ pub trait DesugaredFreezable {
 /// Finished state should always have the result ready in it
 /// if there is nothing to be returned, then it should be simply `()`
 #[derive(Debug, PartialEq, Eq)]
-pub enum FreezableState<T> {
+pub enum FreezableState<T: Display> {
     Finished(T),
     Frozen(Option<T>),
+}
+
+impl<T> Display for FreezableState<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            FreezableState::Finished(val) => write!(f, "function finished with value: {}", val),
+            FreezableState::Frozen(val) => match val {
+                None => write!(f, "function is frozen"),
+                Some(val) => write!(f, "function is frozen with value:  {}", val),
+            },
+        }
+    }
 }
 
 /// Potential errors for our Freezable
@@ -56,4 +72,13 @@ pub enum FreezableState<T> {
 pub enum FreezableError {
     Cancelled,
     AlreadyFinished,
+}
+
+impl Display for FreezableError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            FreezableError::Cancelled => write!(f, "The function is cancelled!"),
+            FreezableError::AlreadyFinished => write!(f, "The function is already finished!"),
+        }
+    }
 }
