@@ -12,8 +12,7 @@ mod freezable_generator_4;
 
 pub use freezable_complex::FreezableComplex;
 pub use freezable_generator_4::FreezableGenerator4;
-use std::fmt::Debug;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 /// Freezable trait, but Desugared :)
 ///
@@ -58,7 +57,7 @@ where
     T: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match &*self {
+        match self {
             FreezableState::Finished(val) => write!(f, "function finished with value: {}", val),
             FreezableState::Frozen(val) => match val {
                 None => write!(f, "function is frozen"),
@@ -77,6 +76,9 @@ pub enum FreezableError {
 
 impl Display for FreezableError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            FreezableError::Cancelled => write!(f, "The function is cancelled!"),
+            FreezableError::AlreadyFinished => write!(f, "The function is already finished!"),
+        }
     }
 }
