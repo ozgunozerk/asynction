@@ -7,7 +7,7 @@ where
     println!("- calling `unfreeze` on the Freezable");
     let mut counter = 1;
     while let Ok(state) = freezable.unfreeze() {
-        println!("Call #{counter}: {state:?}");
+        println!("Call #{counter}: {state}");
         counter += 1;
     }
 }
