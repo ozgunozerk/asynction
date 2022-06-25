@@ -1,5 +1,5 @@
 [package]
-name = "freezable_desugared"
+name = "freezable-desugared"
 version = "0.1.0"
 edition = "2021"
 

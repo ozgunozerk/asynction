@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "freezable_desugared"
+name = "freezable-desugared"
 version = "0.1.0"

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "freezable_desugared"
+    "freezable-desugared"
 ]
 
