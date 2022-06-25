@@ -12,6 +12,7 @@ mod freezable_generator_4;
 
 pub use freezable_complex::FreezableComplex;
 pub use freezable_generator_4::FreezableGenerator4;
+use std::fmt::Debug;
 
 /// Freezable trait, but Desugared :)
 ///
@@ -25,7 +26,7 @@ pub use freezable_generator_4::FreezableGenerator4;
 /// Refer to `freezable_complex.rs` and `freezable_generator_4.rs` to see `freeze()` calls in the
 /// imaginary original code (remember, this code is the desugared one of the imaginary original one)
 pub trait DesugaredFreezable {
-    type Output;
+    type Output: Debug;
 
     /// should generate the next item in the sequence, then it will freeze itself again
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError>;
