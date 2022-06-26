@@ -1,4 +1,4 @@
-//! An example of a `DesugaredFreezable` function:
+//! An example of a `Freezable` function:
 //! it will do meaningless operations
 //! just to show that this concept can be used for any purpose
 //! check out `freezable_generator_4.rs` for a slightly less complex, and more straight-forward example
@@ -23,7 +23,7 @@
 //!
 //! See below for the desugared version of the above code
 
-use crate::{DesugaredFreezable, FreezableError, FreezableState};
+use crate::{Freezable, FreezableError, FreezableState};
 
 /// State Machine for our Freezable that will run 3 chunks of code
 /// first state is for initial state
@@ -43,7 +43,7 @@ impl FreezableComplex {
         FreezableComplex::Chunk0(begin)
     }
 }
-impl DesugaredFreezable for FreezableComplex {
+impl Freezable for FreezableComplex {
     type Output = String;
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
         match self {

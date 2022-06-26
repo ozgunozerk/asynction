@@ -14,7 +14,7 @@ pub use freezable_complex::FreezableComplex;
 pub use freezable_generator_4::FreezableGenerator4;
 use std::fmt::{Debug, Display};
 
-/// Freezable trait, but Desugared :)
+/// Freezable trait
 ///
 /// Runs a chunk of code, and then freezes itself.
 /// Have the methods: `unfreeze`, `cancel` and `is_cancelled`
@@ -25,7 +25,7 @@ use std::fmt::{Debug, Display};
 /// desugared version.
 /// Refer to `freezable_complex.rs` and `freezable_generator_4.rs` to see `freeze()` calls in the
 /// imaginary original code (remember, this code is the desugared one of the imaginary original one)
-pub trait DesugaredFreezable {
+pub trait Freezable {
     type Output: Debug + Display;
 
     /// should generate the next item in the sequence, then it will freeze itself again
@@ -82,3 +82,11 @@ impl Display for FreezableError {
         }
     }
 }
+
+/// empty function for our custom keyword
+///
+/// since we cannot introduce a new keyword to the language
+/// we will be using this empty function for the same purpose
+/// check out the `freezable_complex` and `freezable_generator` for
+/// the envisaged usages of this function
+pub fn freeze() {}
