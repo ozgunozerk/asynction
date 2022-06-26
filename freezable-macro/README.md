@@ -2,7 +2,11 @@ This library will provide the macro for turning the below code:
 
 Original Code:
 ```rust
-fn freezable_complex(begin: usize) -> String {
+use freezable_macro::freezable;
+use freezable::freeze;
+
+#[freezable]
+fn complex(begin: usize) -> String {
     let current_num = begin;
     freeze();  // freezes the function, and returns no partial value
     let (num1, num2) = (current_num + 1, current_num - 1);
@@ -15,11 +19,11 @@ fn freezable_complex(begin: usize) -> String {
 }
 ```
 
-into:
+into ->
 
 Generated Code:
 ```rust
-use freezable_desugared::{DesugaredFreezable, FreezableError, FreezableState};
+use freezable::{Freezable, FreezableError, FreezableState};
 
 /// State Machine for our Freezable that will run 3 chunks of code
 /// first state is for initial state
@@ -39,7 +43,7 @@ impl FreezableComplex {
         FreezableComplex::Chunk0(begin)
     }
 }
-impl DesugaredFreezable for FreezableComplex {
+impl Freezable for FreezableComplex {
     type Output = String;
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
         match self {

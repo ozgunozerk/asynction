@@ -6,4 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-freezable-desugared = { version = "0.1.0", path = "../freezable-desugared"}
+freezable = { version = "0.1.0", path = "../freezable"}
+proc-macro2 = "1.0.40"
+quote = "1.0.20"
+syn = { version = "1.0.98", features = ["full"] }
+
+[lib]
+proc-macro = true
