@@ -1,8 +1,8 @@
-use freezable_desugared::{DesugaredFreezable, FreezableComplex, FreezableGenerator4};
+use freezable::{Freezable, FreezableComplex, FreezableGenerator4};
 
 fn call_unfreeze<T>(freezable: &mut T)
 where
-    T: DesugaredFreezable,
+    T: Freezable,
 {
     println!("- calling `unfreeze` on the Freezable");
     let mut counter = 1;
@@ -14,7 +14,7 @@ where
 
 fn call_cancel_randomly<T>(freezable: &mut T)
 where
-    T: DesugaredFreezable,
+    T: Freezable,
 {
     println!("- calling `cancel` in a random state");
     println!("Call #1: {:?}", freezable.unfreeze());

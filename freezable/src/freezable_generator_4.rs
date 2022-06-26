@@ -1,4 +1,4 @@
-//! An example of a `DesugaredFreezable` function:
+//! An example of a `Freezable` function:
 //! it will generate 4 numbers in a sequence,
 //! but will freeze itself after generating each number
 //! check out `freezable_complex.rs` for a more slightly more complex example
@@ -22,7 +22,7 @@
 //!
 //! See below for the desugared version of the above code
 
-use crate::{DesugaredFreezable, FreezableError, FreezableState};
+use crate::{Freezable, FreezableError, FreezableState};
 
 /// State Machine for our Freezable that will generate 4 numbers
 /// first 4 states are for generating 4 numbers
@@ -43,7 +43,7 @@ impl FreezableGenerator4 {
     }
 }
 
-impl DesugaredFreezable for FreezableGenerator4 {
+impl Freezable for FreezableGenerator4 {
     type Output = u8;
 
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
