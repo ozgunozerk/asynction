@@ -21,7 +21,7 @@ fn freezable_2(input: syn::Item) -> Result<proc_macro2::TokenStream, syn::Error>
             .iter()
             .for_each(|statement| match statement {
                 syn::Stmt::Semi(e, t) => {
-                    if !quote!(#e).to_string().starts_with("freeze(") {
+                    if !quote!(#e).to_string().starts_with("freeze!(") {
                         chunks.push(syn::Stmt::Semi(e.clone(), *t))
                     }
                 }
