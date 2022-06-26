@@ -19,11 +19,11 @@ use std::fmt::{Debug, Display};
 /// Runs a chunk of code, and then freezes itself.
 /// Have the methods: `unfreeze`, `cancel` and `is_cancelled`
 ///
-/// imitates a function, that has chunks of code, and between each chunk, `freeze()` is called
-/// `freeze()` is what makes the function stop there, and allows us to continue from where its left off
-/// when we call the function again. We won't be seeing the `freeze()` calls here. Since this is the
+/// imitates a function, that has chunks of code, and between each chunk, `freeze!()` is called
+/// `freeze!()` is what makes the function stop there, and allows us to continue from where its left off
+/// when we call the function again. We won't be seeing the `freeze!()` calls here. Since this is the
 /// desugared version.
-/// Refer to `freezable_complex.rs` and `freezable_generator_4.rs` to see `freeze()` calls in the
+/// Refer to `freezable_complex.rs` and `freezable_generator_4.rs` to see `freeze!()` calls in the
 /// imaginary original code (remember, this code is the desugared one of the imaginary original one)
 pub trait Freezable {
     type Output: Debug + Display;
@@ -83,10 +83,14 @@ impl Display for FreezableError {
     }
 }
 
-/// empty function for our custom keyword
+/// empty macro for our custom keyword
 ///
 /// since we cannot introduce a new keyword to the language
-/// we will be using this empty function for the same purpose
+/// we will be using this empty macro for the same purpose
 /// check out the `freezable_complex` and `freezable_generator` for
 /// the envisaged usages of this function
-pub fn freeze() {}
+#[macro_export]
+macro_rules! freeze {
+    () => {};
+    ($a: expr) => {};
+}
