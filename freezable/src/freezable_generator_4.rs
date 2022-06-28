@@ -7,13 +7,13 @@
 //! ```ignore
 //! fn freezable_generator_4(begin: usize) -> usize {
 //!     let mut next = begin;
-//!     freeze(next);  // freezes the function, but also return the partial result
+//!     freeze!(next);  // freezes the function, but also return the partial result
 //!
 //!     next += 1;
-//!     freeze(next);
+//!     freeze!(next);
 //!
 //!     next += 1;
-//!     freeze(next);
+//!     freeze!(next);
 //!
 //!     next += 1;
 //!     next

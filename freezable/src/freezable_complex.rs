@@ -7,13 +7,13 @@
 //! ```ignore
 //! fn freezable_complex(begin: usize) -> String {
 //!     let current_num = begin;
-//!     freeze();  // freezes the function, and returns no partial value
+//!     freeze!();  // freezes the function, and returns no partial value
 //!
 //!     let (num1, num2) = (current_num + 1, current_num - 1);
-//!     freeze();
+//!     freeze!();
 //!
 //!     let mult_str = (num1 * num2).to_string();
-//!     freeze();
+//!     freeze!();
 //!
 //!     mult_str.push_str(" a random text");
 //!     mult_str.truncate(10);
