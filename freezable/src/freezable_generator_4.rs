@@ -46,27 +46,31 @@ impl FreezableGenerator4 {
 impl Freezable for FreezableGenerator4 {
     type Output = u8;
 
+    #[allow(unused_mut)]
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
         match self {
-            FreezableGenerator4::Chunk0(num) => {
-                let current_num = *num;
-                *self = FreezableGenerator4::Chunk1(current_num);
-                Ok(FreezableState::Frozen(Some(current_num)))
+            FreezableGenerator4::Chunk0(begin) => {
+                let mut next = *begin;
+                *self = FreezableGenerator4::Chunk1(next);
+                Ok(FreezableState::Frozen(Some(next)))
             }
-            FreezableGenerator4::Chunk1(num) => {
-                let current_num = *num;
-                *self = FreezableGenerator4::Chunk2(current_num + 1);
-                Ok(FreezableState::Frozen(Some(current_num + 1)))
+            FreezableGenerator4::Chunk1(next) => {
+                let mut next = *next;
+                next += 1;
+                *self = FreezableGenerator4::Chunk2(next);
+                Ok(FreezableState::Frozen(Some(next)))
             }
-            FreezableGenerator4::Chunk2(num) => {
-                let current_num = *num;
-                *self = FreezableGenerator4::Chunk3(current_num + 1);
-                Ok(FreezableState::Frozen(Some(current_num + 1)))
+            FreezableGenerator4::Chunk2(next) => {
+                let mut next = *next;
+                next += 1;
+                *self = FreezableGenerator4::Chunk3(next);
+                Ok(FreezableState::Frozen(Some(next)))
             }
-            FreezableGenerator4::Chunk3(num) => {
-                let current_num = *num;
+            FreezableGenerator4::Chunk3(next) => {
+                let mut next = *next;
+                next += 1;
                 *self = FreezableGenerator4::Finished;
-                Ok(FreezableState::Finished(current_num + 1))
+                Ok(FreezableState::Finished(next))
             }
             FreezableGenerator4::Finished => Err(FreezableError::AlreadyFinished),
             FreezableGenerator4::Cancelled => Err(FreezableError::Cancelled),
