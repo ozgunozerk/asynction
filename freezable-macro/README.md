@@ -82,3 +82,6 @@ impl Freezable for FreezableComplex {
     }
 }
 ```
+
+
+To see the generated code, run: ```cargo expand``` (you must have installed `cargo-expand`, if not: install it with `cargo install cargo-expand`).
