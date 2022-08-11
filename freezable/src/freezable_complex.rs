@@ -71,7 +71,7 @@ impl Freezable for FreezableComplex {
                 result.push_str(" a random text");
                 result.truncate(10);
                 *self = FreezableComplex::Finished;
-                Ok(FreezableState::Finished(result.to_string()))
+                Ok(FreezableState::Finished(result))
             }
             FreezableComplex::Finished => Err(FreezableError::AlreadyFinished),
             FreezableComplex::Cancelled => Err(FreezableError::Cancelled),
