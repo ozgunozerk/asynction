@@ -5,7 +5,7 @@
 //!
 //! Original Code:
 //! ```ignore
-//! fn freezable_complex(begin: usize) -> String {
+//! fn freezable_complex(begin: u8) -> String {
 //!     let current_num = begin;
 //!     freeze!();  // freezes the function, and returns no partial value
 //!

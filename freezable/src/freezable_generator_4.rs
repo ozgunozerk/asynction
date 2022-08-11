@@ -5,7 +5,7 @@
 //!
 //! Original Code:
 //! ```ignore
-//! fn freezable_generator_4(begin: usize) -> usize {
+//! fn freezable_generator_4(begin: u8) -> u8 {
 //!     let mut next = begin;
 //!     freeze!(next);  // freezes the function, but also return the partial result
 //!
