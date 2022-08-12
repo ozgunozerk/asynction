@@ -30,7 +30,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, Stmt};
+use syn::{parse_macro_input, spanned::Spanned};
 
 #[proc_macro_attribute]
 pub fn freezable(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -120,7 +120,7 @@ fn parse_variable_names_and_types(local: &syn::Local) {
     }
 }
 
-fn variant_generator(chunks: &Vec<Vec<Stmt>>) -> Vec<proc_macro2::Ident> {
+fn variant_generator(chunks: &Vec<Vec<syn::Stmt>>) -> Vec<proc_macro2::Ident> {
     chunks
         .iter()
         .enumerate()
