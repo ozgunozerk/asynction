@@ -120,7 +120,7 @@ fn parse_variable_names_and_types(local: &syn::Local) {
     }
 }
 
-fn variant_generator(chunks: &Vec<Vec<syn::Stmt>>) -> Vec<proc_macro2::Ident> {
+fn variant_generator(chunks: &[Vec<syn::Stmt>]) -> Vec<proc_macro2::Ident> {
     chunks
         .iter()
         .enumerate()
