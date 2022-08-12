@@ -5,7 +5,7 @@
 //!
 //! Original Code:
 //! ```ignore
-//! fn freezable_complex(begin: usize) -> String {
+//! fn freezable_complex(begin: u8) -> String {
 //!     let current_num = begin;
 //!     freeze!();  // freezes the function, and returns no partial value
 //!
@@ -33,7 +33,7 @@ pub enum FreezableComplex {
     Chunk0(u8),
     Chunk1(u8),
     Chunk2(u8, u8),
-    Chunk3(String),
+    Chunk3(Option<String>), // `Option` is used as a trick to get the ownership of the `String`, to eliminate unnecessary `clone()` calls
     Finished,
     Cancelled,
 }
@@ -45,30 +45,33 @@ impl FreezableComplex {
 }
 impl Freezable for FreezableComplex {
     type Output = String;
+
+    #[allow(unused_mut)]
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
         match self {
-            FreezableComplex::Chunk0(num) => {
-                let current_num = *num;
+            FreezableComplex::Chunk0(begin) => {
+                let current_num = *begin;
                 *self = FreezableComplex::Chunk1(current_num);
                 Ok(FreezableState::Frozen(None))
             }
-            FreezableComplex::Chunk1(num) => {
-                let (current_num1, current_num2) = (*num + 1, *num - 1);
-                *self = FreezableComplex::Chunk2(current_num1, current_num2);
+            FreezableComplex::Chunk1(current_num) => {
+                let (num1, num2) = (*current_num + 1, *current_num - 1);
+                *self = FreezableComplex::Chunk2(num1, num2);
                 Ok(FreezableState::Frozen(None))
             }
             FreezableComplex::Chunk2(num1, num2) => {
-                let (current_num1, current_num2) = (*num1, *num2);
-                let result = (current_num1 * current_num2).to_string();
-                *self = FreezableComplex::Chunk3(result);
+                let mult_str = (*num1 * *num2).to_string();
+                *self = FreezableComplex::Chunk3(Some(mult_str));
                 Ok(FreezableState::Frozen(None))
             }
-            FreezableComplex::Chunk3(result) => {
-                let mut current_result = result.clone();
-                current_result.push_str(" a random text");
-                current_result.truncate(10);
+            FreezableComplex::Chunk3(mult_str) => {
+                let mut result = mult_str
+                    .take()
+                    .expect("macro always puts value in the option");
+                result.push_str(" a random text");
+                result.truncate(10);
                 *self = FreezableComplex::Finished;
-                Ok(FreezableState::Finished(current_result))
+                Ok(FreezableState::Finished(result))
             }
             FreezableComplex::Finished => Err(FreezableError::AlreadyFinished),
             FreezableComplex::Cancelled => Err(FreezableError::Cancelled),
