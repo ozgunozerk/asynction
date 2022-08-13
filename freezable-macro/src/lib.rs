@@ -42,49 +42,77 @@ pub fn freezable(args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 fn freezable_2(input: syn::Item) -> Result<proc_macro2::TokenStream, syn::Error> {
-    if let syn::Item::Fn(item) = input {
-        let return_type = parse_return_type(&item);
-        println!("return type is:  {:#?}", return_type);
+    if let syn::Item::Fn(func) = input {
+        let return_type = parse_return_type(&func);
+        let params = parse_parameters(&func);
 
-        let mut chunks = vec![vec![]];
+        let mut code_chunks = vec![vec![]];
+        let mut var_chunks = vec![vec![]];
 
-        item.block
+        if let Some(mut input_vars) = params {
+            var_chunks.last_mut().unwrap().append(&mut input_vars);
+        }
+
+        func.block
             .stmts
             .iter()
             .for_each(|statement| match statement {
-                syn::Stmt::Semi(e, t) => {
+                syn::Stmt::Local(local) => {
+                    code_chunks
+                        .last_mut()
+                        .unwrap()
+                        .push(quote!(#local).to_string());
+
+                    var_chunks
+                        .last_mut()
+                        .unwrap()
+                        .append(&mut parse_variable_names_and_types(local));
+                }
+                syn::Stmt::Semi(e, _t) => {
                     if quote!(#e).to_string().starts_with("freeze! (") {
-                        chunks.push(vec![]);
+                        code_chunks.push(vec![]);
+                        var_chunks.push(var_chunks.last().unwrap().clone());
                     } else {
-                        chunks
+                        code_chunks
                             .last_mut()
                             .unwrap()
-                            .push(syn::Stmt::Semi(e.clone(), *t))
+                            .push(quote!(#e).to_string() + ";");
                     }
                 }
-                syn::Stmt::Local(local) => parse_variable_names_and_types(local),
-                other => chunks.last_mut().unwrap().push(other.clone()),
+                other => code_chunks
+                    .last_mut()
+                    .unwrap()
+                    .push(quote!(#other).to_string()),
             });
 
-        let name = item.sig.ident.clone();
-        let variants = variant_generator(&chunks);
+        for e in code_chunks.iter() {
+            println!("the statement: {:?}", e);
+        }
+        for e in var_chunks.iter() {
+            println!("variables: {:?}", e);
+        }
+
+        let name = func.sig.ident.clone();
+        let variants = variant_generator(&code_chunks);
 
         Ok(quote! {
+            use freezable::Freezable;
+
             #[allow(non_camel_case_types)]
             pub enum #name {
                 #(#variants),*,
                 Finished,
                 Cancelled,
             }
-            #item
+            #func
         })
     } else {
         Err(syn::Error::new(input.span(), "expected a function!"))
     }
 }
 
-fn parse_return_type(input: &syn::ItemFn) -> Option<String> {
-    if let syn::ReturnType::Type(_, a) = &input.sig.output {
+fn parse_return_type(func: &syn::ItemFn) -> Option<String> {
+    if let syn::ReturnType::Type(_, a) = &func.sig.output {
         if let syn::Type::Path(b) = &**a {
             Some(b.path.segments[0].ident.to_string())
         } else {
@@ -95,37 +123,62 @@ fn parse_return_type(input: &syn::ItemFn) -> Option<String> {
     }
 }
 
-fn parse_variable_names_and_types(local: &syn::Local) {
-    if let syn::Pat::Type(a) = &local.pat {
-        if let syn::Pat::Ident(b) = &*a.pat {
-            println!("here is name: {:#?}", b.ident.to_string());
-            if let syn::Type::Path(c) = &*a.ty {
-                println!("here is type: {:#?}", c.path.segments[0].ident.to_string());
-            }
-        }
-        if let syn::Pat::Tuple(b) = &*a.pat {
-            for elem in b.elems.iter() {
-                if let syn::Pat::Ident(c) = elem {
-                    println!("here is name: {:#?}", c.ident.to_string());
+fn parse_parameters(func: &syn::ItemFn) -> Option<Vec<(String, String)>> {
+    if func.sig.inputs.is_empty() {
+        return None;
+    }
+
+    let mut names_types = vec![];
+    for i in func.sig.inputs.iter() {
+        if let syn::FnArg::Typed(a) = i {
+            if let syn::Pat::Ident(b) = &*a.pat {
+                if let syn::Type::Path(c) = &*a.ty {
+                    names_types.push((b.ident.to_string(), c.path.segments[0].ident.to_string()))
                 }
             }
+        }
+    }
+    Some(names_types)
+}
+
+fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(String, String)> {
+    let mut names_types = vec![];
+
+    // if the statement is a `let` statement
+    if let syn::Pat::Type(a) = &local.pat {
+        // if it is in format -> `let a = something`
+        if let syn::Pat::Ident(b) = &*a.pat {
+            if let syn::Type::Path(c) = &*a.ty {
+                names_types.push((b.ident.to_string(), c.path.segments[0].ident.to_string()))
+            }
+        }
+
+        // if it in tuple format -> `let (a, b, c) = (x, y, z)`
+        if let syn::Pat::Tuple(b) = &*a.pat {
             if let syn::Type::Tuple(c) = &*a.ty {
-                for elem in c.elems.iter() {
-                    if let syn::Type::Path(d) = elem {
-                        println!("here is type: {:#?}", d.path.segments[0].ident.to_string());
+                let names = b.elems.iter();
+                let types = c.elems.iter();
+
+                for (name, ty) in names.zip(types) {
+                    if let syn::Pat::Ident(c) = name {
+                        if let syn::Type::Path(d) = ty {
+                            names_types
+                                .push((c.ident.to_string(), d.path.segments[0].ident.to_string()))
+                        }
                     }
                 }
             }
         }
     }
+    names_types
 }
 
-fn variant_generator(chunks: &[Vec<syn::Stmt>]) -> Vec<proc_macro2::Ident> {
-    chunks
+fn variant_generator(code_chunks: &[Vec<String>]) -> Vec<proc_macro2::Ident> {
+    code_chunks
         .iter()
         .enumerate()
         .map(|(i, _)| {
-            let variant_name_str = format!("chunk{}", i);
+            let variant_name_str = format!("Chunk{}", i);
             syn::Ident::new(&variant_name_str, proc_macro2::Span::call_site())
         })
         .collect::<Vec<syn::Ident>>()
