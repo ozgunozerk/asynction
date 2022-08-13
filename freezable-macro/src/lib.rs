@@ -30,20 +30,20 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned};
+use syn::{parse_macro_input, spanned::Spanned, Ident, Item};
 
 #[proc_macro_attribute]
 pub fn freezable(args: TokenStream, input: TokenStream) -> TokenStream {
     assert!(args.is_empty());
-    let ty = parse_macro_input!(input as syn::Item);
+    let ty = parse_macro_input!(input as Item);
     freezable_2(ty)
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }
 
-fn freezable_2(input: syn::Item) -> Result<proc_macro2::TokenStream, syn::Error> {
-    if let syn::Item::Fn(func) = input {
-        let return_type = parse_return_type(&func);
+fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
+    if let Item::Fn(func) = input {
+        let _return_type = parse_return_type(&func);
         let params = parse_parameters(&func);
 
         let mut code_chunks = vec![vec![]];
@@ -58,10 +58,7 @@ fn freezable_2(input: syn::Item) -> Result<proc_macro2::TokenStream, syn::Error>
             .iter()
             .for_each(|statement| match statement {
                 syn::Stmt::Local(local) => {
-                    code_chunks
-                        .last_mut()
-                        .unwrap()
-                        .push(quote!(#local).to_string());
+                    code_chunks.last_mut().unwrap().push(quote!(#statement));
 
                     var_chunks
                         .last_mut()
@@ -73,24 +70,18 @@ fn freezable_2(input: syn::Item) -> Result<proc_macro2::TokenStream, syn::Error>
                         code_chunks.push(vec![]);
                         var_chunks.push(var_chunks.last().unwrap().clone());
                     } else {
-                        code_chunks
-                            .last_mut()
-                            .unwrap()
-                            .push(quote!(#e).to_string() + ";");
+                        code_chunks.last_mut().unwrap().push(quote!(#statement));
                     }
                 }
-                other => code_chunks
-                    .last_mut()
-                    .unwrap()
-                    .push(quote!(#other).to_string()),
+                _other => code_chunks.last_mut().unwrap().push(quote!(#statement)),
             });
 
-        for e in code_chunks.iter() {
-            println!("the statement: {:?}", e);
-        }
-        for e in var_chunks.iter() {
-            println!("variables: {:?}", e);
-        }
+        // for e in code_chunks.iter() {
+        //     println!("the statement: {:?}", e);
+        // }
+        // for e in var_chunks.iter() {
+        //     println!("variables: {:?}", e);
+        // }
 
         let name = func.sig.ident.clone();
         let variants = variant_generator(&code_chunks);
@@ -100,6 +91,7 @@ fn freezable_2(input: syn::Item) -> Result<proc_macro2::TokenStream, syn::Error>
 
             #[allow(non_camel_case_types)]
             pub enum #name {
+                //#(#names(quote!(#(#types),*))),*,
                 #(#variants),*,
                 Finished,
                 Cancelled,
@@ -111,10 +103,10 @@ fn freezable_2(input: syn::Item) -> Result<proc_macro2::TokenStream, syn::Error>
     }
 }
 
-fn parse_return_type(func: &syn::ItemFn) -> Option<String> {
+fn parse_return_type(func: &syn::ItemFn) -> Option<Ident> {
     if let syn::ReturnType::Type(_, a) = &func.sig.output {
         if let syn::Type::Path(b) = &**a {
-            Some(b.path.segments[0].ident.to_string())
+            Some(b.path.segments[0].ident.clone())
         } else {
             unreachable!("return type should not be empty");
         }
@@ -123,7 +115,7 @@ fn parse_return_type(func: &syn::ItemFn) -> Option<String> {
     }
 }
 
-fn parse_parameters(func: &syn::ItemFn) -> Option<Vec<(String, String)>> {
+fn parse_parameters(func: &syn::ItemFn) -> Option<Vec<(Ident, Ident)>> {
     if func.sig.inputs.is_empty() {
         return None;
     }
@@ -133,7 +125,7 @@ fn parse_parameters(func: &syn::ItemFn) -> Option<Vec<(String, String)>> {
         if let syn::FnArg::Typed(a) = i {
             if let syn::Pat::Ident(b) = &*a.pat {
                 if let syn::Type::Path(c) = &*a.ty {
-                    names_types.push((b.ident.to_string(), c.path.segments[0].ident.to_string()))
+                    names_types.push((b.ident.clone(), c.path.segments[0].ident.clone()))
                 }
             }
         }
@@ -141,7 +133,7 @@ fn parse_parameters(func: &syn::ItemFn) -> Option<Vec<(String, String)>> {
     Some(names_types)
 }
 
-fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(String, String)> {
+fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(Ident, Ident)> {
     let mut names_types = vec![];
 
     // if the statement is a `let` statement
@@ -149,7 +141,7 @@ fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(String, String)> {
         // if it is in format -> `let a = something`
         if let syn::Pat::Ident(b) = &*a.pat {
             if let syn::Type::Path(c) = &*a.ty {
-                names_types.push((b.ident.to_string(), c.path.segments[0].ident.to_string()))
+                names_types.push((b.ident.clone(), c.path.segments[0].ident.clone()))
             }
         }
 
@@ -162,8 +154,7 @@ fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(String, String)> {
                 for (name, ty) in names.zip(types) {
                     if let syn::Pat::Ident(c) = name {
                         if let syn::Type::Path(d) = ty {
-                            names_types
-                                .push((c.ident.to_string(), d.path.segments[0].ident.to_string()))
+                            names_types.push((c.ident.clone(), d.path.segments[0].ident.clone()))
                         }
                     }
                 }
@@ -173,13 +164,13 @@ fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(String, String)> {
     names_types
 }
 
-fn variant_generator(code_chunks: &[Vec<String>]) -> Vec<proc_macro2::Ident> {
+fn variant_generator(code_chunks: &[Vec<proc_macro2::TokenStream>]) -> Vec<Ident> {
     code_chunks
         .iter()
         .enumerate()
         .map(|(i, _)| {
             let variant_name_str = format!("Chunk{}", i);
-            syn::Ident::new(&variant_name_str, proc_macro2::Span::call_site())
+            Ident::new(&variant_name_str, proc_macro2::Span::call_site())
         })
-        .collect::<Vec<syn::Ident>>()
+        .collect::<Vec<Ident>>()
 }
