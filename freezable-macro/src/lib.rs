@@ -30,7 +30,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, Ident, Item};
+use syn::{parse_macro_input, parse_str, spanned::Spanned, Ident, Item, Variant};
 
 #[proc_macro_attribute]
 pub fn freezable(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -51,6 +51,7 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
 
         if let Some(mut input_vars) = params {
             var_chunks.last_mut().unwrap().append(&mut input_vars);
+            var_chunks.push(var_chunks.last().unwrap().clone());
         }
 
         func.block
@@ -75,6 +76,8 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
                 }
                 _other => code_chunks.last_mut().unwrap().push(quote!(#statement)),
             });
+        var_chunks.pop(); // the last item is not necessary, since we are storing the variables for the next chunk
+                          // we don't need to store the variables declared in the last chunk, because there won't be a next chunk
 
         // for e in code_chunks.iter() {
         //     println!("the statement: {:?}", e);
@@ -84,14 +87,13 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
         // }
 
         let name = func.sig.ident.clone();
-        let variants = variant_generator(&code_chunks);
+        let variants = variant_generator(&var_chunks);
 
         Ok(quote! {
             use freezable::Freezable;
 
             #[allow(non_camel_case_types)]
             pub enum #name {
-                //#(#names(quote!(#(#types),*))),*,
                 #(#variants),*,
                 Finished,
                 Cancelled,
@@ -164,13 +166,23 @@ fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(Ident, Ident)> {
     names_types
 }
 
-fn variant_generator(code_chunks: &[Vec<proc_macro2::TokenStream>]) -> Vec<Ident> {
-    code_chunks
+fn variant_generator(var_chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
+    var_chunks
         .iter()
         .enumerate()
-        .map(|(i, _)| {
-            let variant_name_str = format!("Chunk{}", i);
-            Ident::new(&variant_name_str, proc_macro2::Span::call_site())
+        .map(|(i, vars)| {
+            let mut variant_name_str = format!("Chunk{}", i);
+            if vars.is_empty() {
+                parse_str::<Variant>(&variant_name_str).unwrap()
+            } else {
+                variant_name_str += "(";
+                for (_, var_type) in vars.iter() {
+                    variant_name_str += &(var_type.to_string() + ", ");
+                }
+                variant_name_str = variant_name_str[..variant_name_str.len() - 2].to_string(); // try to delete this line to see if it still works
+                variant_name_str += ")";
+                parse_str::<Variant>(&variant_name_str).unwrap()
+            }
         })
-        .collect::<Vec<Ident>>()
+        .collect::<Vec<Variant>>()
 }
