@@ -14,5 +14,5 @@ fn freezable_complex(begin: u8) -> () {
 }
 
 fn main() {
-    freezable_complex(8);
+    println!("hey");
 }

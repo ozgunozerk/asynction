@@ -46,7 +46,8 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
         let return_type = parse_return_type(&func);
 
         let mut code_chunks = vec![vec![]];
-        let mut var_chunks = vec![vec![]];
+        let mut var_chunks = vec![vec![]]; // TODO: try complex types like `Vec<Vec<u8>>` in here, it may not be `Ident`
+        let mut to_be_returned: Vec<Vec<(Ident, Ident)>> = vec![vec![]];
 
         if let Some(mut input_vars) = parse_parameters(&func) {
             var_chunks.last_mut().unwrap().append(&mut input_vars);
@@ -67,6 +68,7 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
                 }
                 syn::Stmt::Semi(e, _t) => {
                     if quote!(#e).to_string().starts_with("freeze! (") {
+                        // TODO: parse whether there is something in `freeze!(...)` in here, and assign it to another `to_be_returned`
                         code_chunks.push(vec![]);
                         var_chunks.push(var_chunks.last().unwrap().clone());
                     } else {
@@ -89,11 +91,28 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
         let variants = variant_generator(&var_chunks); // list of variants, along with their types -> `Chunk2(u8, u8)`
         let variant_names = variant_names(&var_chunks); // list of variant names -> `Chunk2`
         let first_chunk_name = variant_names[0].clone(); // necessary for the `start` function
-        let parameters = func.sig.inputs.clone(); // list of parameters along with their types -> `begin: u8`
+        let parameters = func.sig.inputs; // list of parameters along with their types -> `begin: u8`
         let parameter_names: Vec<Ident> = var_chunks[0] // list of parameter names -> `begin`
             .iter()
             .map(|(name, _type)| name.clone())
             .collect();
+        let var_name_chunks = var_chunks
+            .iter()
+            .map(|inner| {
+                inner
+                    .iter()
+                    .map(|(name, _ty)| name.clone())
+                    .collect::<Vec<Ident>>()
+            })
+            .collect::<Vec<Vec<Ident>>>();
+
+        let match_arms = generate_match_arms(
+            &name,
+            &variant_names,
+            &var_name_chunks,
+            &code_chunks,
+            &to_be_returned,
+        );
 
         Ok(quote! {
             use freezable::{Freezable, FreezableError, FreezableState};
@@ -116,6 +135,7 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
 
                 fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
                     match self {
+                        #(#match_arms),*,
                         #name::Finished => Err(FreezableError::AlreadyFinished),
                         #name::Cancelled => Err(FreezableError::Cancelled),
                     }
@@ -134,8 +154,6 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
                     matches!(self, #name::Finished)
                 }
             }
-
-            #func
         })
     } else {
         Err(syn::Error::new(input.span(), "expected a function!"))
@@ -221,8 +239,8 @@ fn variant_generator(var_chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
         .collect::<Vec<Variant>>()
 }
 
-fn variant_names(chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
-    chunks
+fn variant_names(var_chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
+    var_chunks
         .iter()
         .enumerate()
         .map(|(i, _)| {
@@ -230,4 +248,27 @@ fn variant_names(chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
             parse_str::<Variant>(&variant_name_str).unwrap()
         })
         .collect::<Vec<Variant>>()
+}
+
+fn generate_match_arms(
+    name: &Ident,
+    variant_names: &[Variant],
+    var_name_chunks: &[Vec<Ident>],
+    code_chunks: &[Vec<proc_macro2::TokenStream>],
+    to_be_returned: &[Vec<(Ident, Ident)>],
+) -> Vec<proc_macro2::TokenStream> {
+    let mut match_arms = vec![];
+    for i in 0..variant_names.len() - 1 {
+        let cur_variant_name = variant_names[i].clone();
+        let next_variant_name = variant_names[i + 1].clone();
+        let cur_variable_names = var_name_chunks[i].clone();
+        let next_variable_names = var_name_chunks[i + 1].clone();
+        match_arms.push(quote! {
+            #name::#cur_variant_name(#(Some(#cur_variable_names)),*,) => {
+                *self = #name::#next_variant_name(#(Some(#next_variable_names)),*,);
+                Ok(FreezableState::Frozen(None))
+            }
+        })
+    }
+    match_arms
 }
