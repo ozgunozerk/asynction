@@ -84,6 +84,10 @@ impl Freezable for FreezableGenerator4 {
     fn is_cancelled(&self) -> bool {
         matches!(self, FreezableGenerator4::Cancelled)
     }
+
+    fn is_finished(&self) -> bool {
+        matches!(self, FreezableGenerator4::Finished)
+    }
 }
 
 #[test]

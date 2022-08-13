@@ -77,11 +77,17 @@ impl Freezable for FreezableComplex {
             FreezableComplex::Cancelled => Err(FreezableError::Cancelled),
         }
     }
+
     fn cancel(&mut self) {
         *self = FreezableComplex::Cancelled
     }
+
     fn is_cancelled(&self) -> bool {
         matches!(self, FreezableComplex::Cancelled)
+    }
+
+    fn is_finished(&self) -> bool {
+        matches!(self, FreezableComplex::Finished)
     }
 }
 

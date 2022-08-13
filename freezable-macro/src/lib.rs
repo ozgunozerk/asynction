@@ -43,13 +43,12 @@ pub fn freezable(args: TokenStream, input: TokenStream) -> TokenStream {
 
 fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
     if let Item::Fn(func) = input {
-        let _return_type = parse_return_type(&func);
-        let params = parse_parameters(&func);
+        let return_type = parse_return_type(&func);
 
         let mut code_chunks = vec![vec![]];
         let mut var_chunks = vec![vec![]];
 
-        if let Some(mut input_vars) = params {
+        if let Some(mut input_vars) = parse_parameters(&func) {
             var_chunks.last_mut().unwrap().append(&mut input_vars);
             var_chunks.push(var_chunks.last().unwrap().clone());
         }
@@ -87,10 +86,17 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
         // }
 
         let name = func.sig.ident.clone();
-        let variants = variant_generator(&var_chunks);
+        let variants = variant_generator(&var_chunks); // list of variants, along with their types -> `Chunk2(u8, u8)`
+        let variant_names = variant_names(&var_chunks); // list of variant names -> `Chunk2`
+        let first_chunk_name = variant_names[0].clone(); // necessary for the `start` function
+        let parameters = func.sig.inputs.clone(); // list of parameters along with their types -> `begin: u8`
+        let parameter_names: Vec<Ident> = var_chunks[0] // list of parameter names -> `begin`
+            .iter()
+            .map(|(name, _type)| name.clone())
+            .collect();
 
         Ok(quote! {
-            use freezable::Freezable;
+            use freezable::{Freezable, FreezableError, FreezableState};
 
             #[allow(non_camel_case_types)]
             pub enum #name {
@@ -98,6 +104,37 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
                 Finished,
                 Cancelled,
             }
+
+            impl #name {
+                pub fn start(#parameters) -> Self {
+                    #name::#first_chunk_name(#(Some(#parameter_names)),*)
+                }
+            }
+
+            impl Freezable for #name {
+                type Output = #return_type;
+
+                fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
+                    match self {
+                        #name::Finished => Err(FreezableError::AlreadyFinished),
+                        #name::Cancelled => Err(FreezableError::Cancelled),
+                    }
+                }
+
+
+                fn cancel(&mut self) {
+                    *self = #name::Cancelled
+                }
+
+                fn is_cancelled(&self) -> bool {
+                    matches!(self, #name::Cancelled)
+                }
+
+                fn is_finished(&self) -> bool {
+                    matches!(self, #name::Finished)
+                }
+            }
+
             #func
         })
     } else {
@@ -105,15 +142,11 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
     }
 }
 
-fn parse_return_type(func: &syn::ItemFn) -> Option<Ident> {
+fn parse_return_type(func: &syn::ItemFn) -> syn::Type {
     if let syn::ReturnType::Type(_, a) = &func.sig.output {
-        if let syn::Type::Path(b) = &**a {
-            Some(b.path.segments[0].ident.clone())
-        } else {
-            unreachable!("return type should not be empty");
-        }
+        *a.clone()
     } else {
-        None
+        parse_str::<syn::Type>("()").unwrap()
     }
 }
 
@@ -177,12 +210,24 @@ fn variant_generator(var_chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
             } else {
                 variant_name_str += "(";
                 for (_, var_type) in vars.iter() {
-                    variant_name_str += &(var_type.to_string() + ", ");
+                    variant_name_str +=
+                        &("Option<".to_owned() + &var_type.to_string() + ">" + ", ");
+                    // TODO: actually we need wrap with Option only when the type is not `Copy`, but that will require extra logic
                 }
-                variant_name_str = variant_name_str[..variant_name_str.len() - 2].to_string(); // try to delete this line to see if it still works
                 variant_name_str += ")";
                 parse_str::<Variant>(&variant_name_str).unwrap()
             }
+        })
+        .collect::<Vec<Variant>>()
+}
+
+fn variant_names(chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
+    chunks
+        .iter()
+        .enumerate()
+        .map(|(i, _)| {
+            let variant_name_str = format!("Chunk{}", i);
+            parse_str::<Variant>(&variant_name_str).unwrap()
         })
         .collect::<Vec<Variant>>()
 }

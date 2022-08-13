@@ -7,7 +7,11 @@ where
     println!("- calling `unfreeze` on the Freezable");
     let mut counter = 1;
     while let Ok(state) = freezable.unfreeze() {
-        println!("Call #{counter}: {state}");
+        println!("Call #{counter}:");
+        match state {
+            freezable::FreezableState::Finished(_) => println!("the task is finished"),
+            freezable::FreezableState::Frozen(_) => println!("the task is frozen"),
+        }
         counter += 1;
     }
 }
