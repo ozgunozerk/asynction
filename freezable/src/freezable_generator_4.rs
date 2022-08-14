@@ -101,6 +101,16 @@ fn cancel_test() {
 }
 
 #[test]
+fn is_finished_test() {
+    let mut generator_5 = FreezableGenerator4::start(5);
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(6))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(7))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Finished(8)));
+    assert!(generator_5.is_finished());
+}
+
+#[test]
 fn unfreeze_test() {
     let mut generator_5 = FreezableGenerator4::start(5);
     assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));

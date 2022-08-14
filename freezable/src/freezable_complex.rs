@@ -103,6 +103,19 @@ fn cancel_test() {
 }
 
 #[test]
+fn is_finished_test() {
+    let mut complex_5 = FreezableComplex::start(5);
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(
+        complex_5.unfreeze(),
+        Ok(FreezableState::Finished("24 a rando".to_string()))
+    );
+    assert!(complex_5.is_finished());
+}
+
+#[test]
 fn unfreeze_test() {
     let mut complex_5 = FreezableComplex::start(5);
     assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
