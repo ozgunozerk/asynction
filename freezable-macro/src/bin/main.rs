@@ -1,4 +1,5 @@
-use freezable::freeze;
+#[allow(unused_imports)]
+use freezable::{freeze, Freezable, FreezableError, FreezableState};
 use freezable_macro::freezable;
 
 #[freezable]
@@ -14,6 +15,49 @@ fn freezable_complex(begin: u8) -> String {
     mult_str
 }
 
+#[freezable]
+fn freezable_generator_4(begin: u8) -> u8 {
+    let mut next: u8 = begin;
+    freeze!(next); // freezes the function, but also return the partial result
+    next += 1;
+    freeze!(next);
+    next += 1;
+    freeze!(next);
+    next += 1;
+    next
+}
+
 fn main() {
-    println!("{}", freezable_complex(8));
+    let mut generator_example = freezable_generator_4::start(5);
+    let mut complex_example = freezable_complex::start(5);
+
+    println!("running the generator example!");
+    let mut counter = 1;
+    while let Ok(state) = generator_example.unfreeze() {
+        println!("Call #{counter}:");
+        match state {
+            FreezableState::Finished(val) => {
+                println!("the task is finished with value: {:?}", val)
+            }
+            FreezableState::Frozen(val) => {
+                println!("the task is frozen with value: {:?}", val)
+            }
+        }
+        counter += 1;
+    }
+    println!("******************************");
+    println!("running the complex example!");
+    let mut counter = 1;
+    while let Ok(state) = complex_example.unfreeze() {
+        println!("Call #{counter}:");
+        match state {
+            FreezableState::Finished(val) => {
+                println!("the task is finished with value: {:#?}", val)
+            }
+            FreezableState::Frozen(val) => {
+                println!("the task is frozen with value: {:#?}", val)
+            }
+        }
+        counter += 1;
+    }
 }

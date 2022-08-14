@@ -26,7 +26,7 @@ use std::fmt::{Debug, Display};
 /// Refer to `freezable_complex.rs` and `freezable_generator_4.rs` to see `freeze!()` calls in the
 /// imaginary original code (remember, this code is the desugared one of the imaginary original one)
 pub trait Freezable {
-    type Output: Debug + Display;
+    type Output: Debug;
 
     /// should generate the next item in the sequence, then it will freeze itself again
     fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError>;
@@ -36,6 +36,8 @@ pub trait Freezable {
 
     /// checks whether the Freezable is cancelled
     fn is_cancelled(&self) -> bool;
+
+    fn is_finished(&self) -> bool;
 }
 
 /// States for our Freezable
@@ -47,24 +49,9 @@ pub trait Freezable {
 /// Finished state should always have the result ready in it
 /// if there is nothing to be returned, then it should be simply `()`
 #[derive(Debug, PartialEq, Eq)]
-pub enum FreezableState<T: Display> {
+pub enum FreezableState<T> {
     Finished(T),
     Frozen(Option<T>),
-}
-
-impl<T> Display for FreezableState<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            FreezableState::Finished(val) => write!(f, "function finished with value: {}", val),
-            FreezableState::Frozen(val) => match val {
-                None => write!(f, "function is frozen"),
-                Some(val) => write!(f, "function is frozen with value:  {}", val),
-            },
-        }
-    }
 }
 
 /// Potential errors for our Freezable

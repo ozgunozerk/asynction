@@ -65,9 +65,10 @@ impl Freezable for FreezableComplex {
                 Ok(FreezableState::Frozen(None))
             }
             FreezableComplex::Chunk3(mult_str) => {
-                let mut result = mult_str
+                let mult_str = mult_str
                     .take()
                     .expect("macro always puts value in the option");
+                let mut result = mult_str;
                 result.push_str(" a random text");
                 result.truncate(10);
                 *self = FreezableComplex::Finished;
@@ -77,11 +78,17 @@ impl Freezable for FreezableComplex {
             FreezableComplex::Cancelled => Err(FreezableError::Cancelled),
         }
     }
+
     fn cancel(&mut self) {
         *self = FreezableComplex::Cancelled
     }
+
     fn is_cancelled(&self) -> bool {
         matches!(self, FreezableComplex::Cancelled)
+    }
+
+    fn is_finished(&self) -> bool {
+        matches!(self, FreezableComplex::Finished)
     }
 }
 
@@ -93,6 +100,19 @@ fn cancel_test() {
     assert!(!complex_5.is_cancelled());
     complex_5.cancel();
     assert!(complex_5.is_cancelled());
+}
+
+#[test]
+fn is_finished_test() {
+    let mut complex_5 = FreezableComplex::start(5);
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
+    assert_eq!(
+        complex_5.unfreeze(),
+        Ok(FreezableState::Finished("24 a rando".to_string()))
+    );
+    assert!(complex_5.is_finished());
 }
 
 #[test]

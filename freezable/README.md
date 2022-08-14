@@ -6,9 +6,14 @@
 *Bear in mind the following:* this library aims to inspect what happens behind the scenes, and focuses at the `desugared version`,
 it will not be ergonomic to implement the `Freezable` trait directly.
 
-*In the `freezable-macro` crate (not available yet), I will provide the macro for converting any function to its `freezable`*
+*In the `freezable-macro` crate, I will provide the macro for converting any function to its `freezable`*
 *version via a procedural macro. So, it will make more sense to use that macro for your functions,*
 *instead of implementing the `Freezable` trait on your own.*
+
+*Note that, there may be minimal differences with the desugared version and the macro (`freezable`) generated code.*
+*The desugared code in here will still be 99% accurate, the details will be probably related to*
+*technical difficulties coming along with macro implementation.*
+*Remember that the main purpose of this desugrad code is to show what the generated code should look like :)*
 
 ### Why you should care?
 

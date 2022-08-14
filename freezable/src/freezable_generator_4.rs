@@ -84,6 +84,10 @@ impl Freezable for FreezableGenerator4 {
     fn is_cancelled(&self) -> bool {
         matches!(self, FreezableGenerator4::Cancelled)
     }
+
+    fn is_finished(&self) -> bool {
+        matches!(self, FreezableGenerator4::Finished)
+    }
 }
 
 #[test]
@@ -94,6 +98,16 @@ fn cancel_test() {
     assert!(!generator_5.is_cancelled());
     generator_5.cancel();
     assert!(generator_5.is_cancelled());
+}
+
+#[test]
+fn is_finished_test() {
+    let mut generator_5 = FreezableGenerator4::start(5);
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(6))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(7))));
+    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Finished(8)));
+    assert!(generator_5.is_finished());
 }
 
 #[test]
