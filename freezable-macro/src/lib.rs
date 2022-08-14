@@ -23,7 +23,14 @@
 //! the feature of deriving the type implicitly could be implemented to our macro, but it won't be anything original,
 //! nor directly related to the main problem of demystifying the concept of asynchronous code.
 //! It will just be a duplication of the compiler's work.
-//! I want to include only the essential logic for generating an asynchronous context into the freezable-macro.
+//!
+//! Another point is, if you want to put something in `freeze!()` for returning it in the `frozen` state, you must put a variable,
+//! not an expression. For example:
+//! this will work `freeze!(var)`
+//! this WON'T work `freeze!(5+3)`
+//! so if you want to put `5+3` into `freeze!`, then assign this operation to a variable, and put that variable in `freeze!`
+//!
+//! I wanted to include only the essential logic for generating an asynchronous context into the freezable-macro.
 //! It will be expected that, the freezable-macro will lack many optimizations/features for the sake of minimalism,
 //! in the end, it is not an end product, but a learning tool to discover the concepts: async, generators, yield, etc...
 
@@ -44,58 +51,35 @@ pub fn freezable(args: TokenStream, input: TokenStream) -> TokenStream {
 
 fn freezable_2(input: Item) -> Result<TokenStream2, syn::Error> {
     if let Item::Fn(func) = input {
-        let return_type = parse_return_type(&func);
-
         let mut code_chunks = vec![vec![]];
         let mut var_chunks = vec![vec![]]; // TODO: try complex types like `Vec<Vec<u8>>` in here, it may not be `Ident`
         let mut freeze_returns: Vec<TokenStream2> = vec![];
-        //let return_value;
+        let mut return_value = None;
 
+        // if some parameters are supplied to the function, we need to bring those to scope of every variant
         if let Some(mut input_vars) = parse_parameters(&func) {
             var_chunks.last_mut().unwrap().append(&mut input_vars);
             var_chunks.push(var_chunks.last().unwrap().clone());
         }
 
-        func.block
-            .stmts
-            .iter()
-            .for_each(|statement| match statement {
-                syn::Stmt::Local(local) => {
-                    code_chunks.last_mut().unwrap().push(quote!(#statement));
+        // parse the code inside the function, and store the necessary info in our structure
+        code_parser(
+            &func,
+            &mut code_chunks,
+            &mut var_chunks,
+            &mut freeze_returns,
+            &mut return_value,
+        );
 
-                    var_chunks
-                        .last_mut()
-                        .unwrap()
-                        .append(&mut parse_variable_names_and_types(local));
-                }
-                syn::Stmt::Semi(e, _t) => {
-                    if quote!(#e).to_string().starts_with("freeze! (") {
-                        let value = parse_freeze(e);
-                        freeze_returns.push(quote!(#value));
-                        code_chunks.push(vec![]);
-                        var_chunks.push(var_chunks.last().unwrap().clone());
-                    } else {
-                        code_chunks.last_mut().unwrap().push(quote!(#statement));
-                    }
-                }
-                _other => code_chunks.last_mut().unwrap().push(quote!(#statement)),
-            });
         var_chunks.pop(); // the last item is not necessary, since we are storing the variables for the next chunk
                           // we don't need to store the variables declared in the last chunk, because there won't be a next chunk
-
-        // for e in code_chunks.iter() {
-        //     println!("the statement: {:?}", e);
-        // }
-        // for e in var_chunks.iter() {
-        //     println!("variables: {:?}", e);
-        // }
-
+        let return_type = parse_return_type(&func);
         let name = func.sig.ident.clone();
         let variants = variant_generator(&var_chunks); // list of variants, along with their types -> `Chunk2(u8, u8)`
-        let variant_names = variant_names(&var_chunks); // list of variant names -> `Chunk2`
+        let variant_names = variant_names(var_chunks.len()); // list of variant names -> `Chunk2`
         let first_chunk_name = variant_names[0].clone(); // necessary for the `start` function
         let parameters = func.sig.inputs; // list of parameters along with their types -> `begin: u8`
-        let parameter_names: Vec<Ident> = var_chunks[0] // list of parameter names -> `begin`
+        let parameter_names: Vec<Ident> = var_chunks[0] // list of parameter names
             .iter()
             .map(|(name, _type)| name.clone())
             .collect();
@@ -115,52 +99,18 @@ fn freezable_2(input: Item) -> Result<TokenStream2, syn::Error> {
             &var_name_chunks,
             &code_chunks,
             &freeze_returns,
-            //&return_value,
+            return_value,
         );
 
-        Ok(quote! {
-            use freezable::{Freezable, FreezableError, FreezableState};
-
-            #[allow(non_camel_case_types)]
-            pub enum #name {
-                #(#variants,)*
-                Finished,
-                Cancelled,
-            }
-
-            impl #name {
-                pub fn start(#parameters) -> Self {
-                    #name::#first_chunk_name(#(Some(#parameter_names)),*)
-                }
-            }
-
-            impl Freezable for #name {
-                type Output = #return_type;
-
-                fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
-                    match self {
-                        #(#match_arms,)*
-                        #name::Chunk3(a, _b, _c, _d, _e)=> a.unwrap(),
-                        #name::Finished => Err(FreezableError::AlreadyFinished),
-                        #name::Cancelled => Err(FreezableError::Cancelled),
-                    }
-                    // todo!("not yet implemented");
-                }
-
-
-                fn cancel(&mut self) {
-                    *self = #name::Cancelled
-                }
-
-                fn is_cancelled(&self) -> bool {
-                    matches!(self, #name::Cancelled)
-                }
-
-                fn is_finished(&self) -> bool {
-                    matches!(self, #name::Finished)
-                }
-            }
-        })
+        generate_freezable_implementation(
+            &name,
+            &variants,
+            &parameters,
+            first_chunk_name,
+            &parameter_names,
+            &return_type,
+            &match_arms,
+        )
     } else {
         Err(syn::Error::new(input.span(), "expected a function!"))
     }
@@ -192,6 +142,42 @@ fn parse_parameters(func: &syn::ItemFn) -> Option<Vec<(Ident, Ident)>> {
     Some(names_types)
 }
 
+fn code_parser(
+    func: &syn::ItemFn,
+    code_chunks: &mut Vec<Vec<TokenStream2>>,
+    var_chunks: &mut Vec<Vec<(Ident, Ident)>>,
+    freeze_returns: &mut Vec<TokenStream2>,
+    return_value: &mut Option<syn::Expr>,
+) {
+    func.block
+        .stmts
+        .iter()
+        .for_each(|statement| match statement {
+            syn::Stmt::Local(local) => {
+                code_chunks.last_mut().unwrap().push(quote!(#statement));
+
+                var_chunks
+                    .last_mut()
+                    .unwrap()
+                    .append(&mut parse_variable_names_and_types(local));
+            }
+            syn::Stmt::Semi(e, _t) => {
+                if quote!(#e).to_string().starts_with("freeze! (") {
+                    let value = parse_freeze(e);
+                    freeze_returns.push(quote!(#value));
+                    code_chunks.push(vec![]);
+                    var_chunks.push(var_chunks.last().unwrap().clone());
+                } else {
+                    code_chunks.last_mut().unwrap().push(quote!(#statement));
+                }
+            }
+            syn::Stmt::Expr(e) => {
+                return_value.replace(e.clone());
+            }
+            _other => code_chunks.last_mut().unwrap().push(quote!(#statement)),
+        });
+}
+
 fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(Ident, Ident)> {
     let mut names_types = vec![];
 
@@ -204,7 +190,7 @@ fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(Ident, Ident)> {
             }
         }
 
-        // if it in tuple format -> `let (a, b, c) = (x, y, z)`
+        // if it is in tuple format -> `let (a, b, c) = (x, y, z)`
         if let syn::Pat::Tuple(b) = &*a.pat {
             if let syn::Type::Tuple(c) = &*a.ty {
                 let names = b.elems.iter();
@@ -219,6 +205,15 @@ fn parse_variable_names_and_types(local: &syn::Local) -> Vec<(Ident, Ident)> {
                 }
             }
         }
+    } else {
+        panic!(
+            "{}",
+            syn::Error::new(
+                local.span(),
+                "let statement is in incorrect format. Maybe you forget to explicitly put types?"
+            )
+        );
+        //panic!("let statement is in incorrect format. Maybe you forget to explicitly put types?");
     }
     names_types
 }
@@ -245,11 +240,9 @@ fn variant_generator(var_chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
         .collect::<Vec<Variant>>()
 }
 
-fn variant_names(var_chunks: &[Vec<(Ident, Ident)>]) -> Vec<Variant> {
-    var_chunks
-        .iter()
-        .enumerate()
-        .map(|(i, _)| {
+fn variant_names(chunk_amount: usize) -> Vec<Variant> {
+    (0..chunk_amount)
+        .map(|i| {
             let variant_name_str = format!("Chunk{}", i);
             parse_str::<Variant>(&variant_name_str).unwrap()
         })
@@ -262,7 +255,7 @@ fn generate_match_arms(
     var_name_chunks: &[Vec<Ident>],
     code_chunks: &[Vec<TokenStream2>],
     freeze_returns: &[TokenStream2],
-    //return_value: &[Ident],
+    return_value: Option<syn::Expr>,
 ) -> Vec<TokenStream2> {
     let mut match_arms = vec![];
     for i in 0..variant_names.len() - 1 {
@@ -278,8 +271,8 @@ fn generate_match_arms(
         // hence, the code should be manually written for an Option interpolation
         if freeze_returns[i].is_empty() {
             match_arms.push(quote! {
-                #name::#cur_variant_name(#(Some(#cur_variable_names),)*) => {
-                    #(let #cur_variable_names = #cur_variable_names.take().expect("value is always present");)*
+                #name::#cur_variant_name(#(#cur_variable_names),*) => {
+                    #(let mut #cur_variable_names = #cur_variable_names.take().expect("value is always present");)*
                     #(#cur_code_chunk);*;
                     *self = #name::#next_variant_name(#(Some(#next_variable_names),)*);
                     Ok(FreezableState::Frozen(None))
@@ -287,8 +280,8 @@ fn generate_match_arms(
             });
         } else {
             match_arms.push(quote! {
-                #name::#cur_variant_name(#(Some(#cur_variable_names),)*) => {
-                    #(let #cur_variable_names = #cur_variable_names.take().expect("value is always present");)*
+                #name::#cur_variant_name(#(#cur_variable_names),*) => {
+                    #(let mut #cur_variable_names = #cur_variable_names.take().expect("value is always present");)*
                     #(#cur_code_chunk);*;
                     *self = #name::#next_variant_name(#(Some(#next_variable_names),)*);
                     Ok(FreezableState::Frozen(Some(#cur_freeze_return)))
@@ -300,15 +293,16 @@ fn generate_match_arms(
     let last_variant_name = variant_names.last().unwrap();
     let last_variable_names = var_name_chunks.last().unwrap();
     let last_code_chunk = code_chunks.last().unwrap();
+
     match_arms.push(quote! {
-        #name::#last_variant_name(#(Some(#last_variable_names)),*,) => {
-            #(let #last_variable_names = #last_variable_names.take().expect("value is always present");)*
-            #(#last_code_chunk;)*
-            *self = #name::Finished();
-            // Ok(FreezableState::Finished(#(#return_value),*))
-            Ok(FreezableState::Finished(#(#last_variable_names),*))
-        }
-    });
+            #name::#last_variant_name(#(#last_variable_names),*,) => {
+                #(let mut #last_variable_names = #last_variable_names.take().expect("value is always present");)*
+                #(#last_code_chunk;)*
+                *self = #name::Finished;
+                Ok(FreezableState::Finished(#return_value))
+            }
+        });
+
     match_arms
 }
 
@@ -318,4 +312,55 @@ fn parse_freeze(e: &syn::Expr) -> TokenStream2 {
     } else {
         unreachable!()
     }
+}
+
+fn generate_freezable_implementation(
+    name: &Ident,
+    variants: &[Variant],
+    parameters: &syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
+    first_chunk_name: Variant,
+    parameter_names: &[Ident],
+    return_type: &syn::Type,
+    match_arms: &[TokenStream2],
+) -> Result<TokenStream2, syn::Error> {
+    Ok(quote! {
+        #[allow(non_camel_case_types)]
+        pub enum #name {
+            #(#variants,)*
+            Finished,
+            Cancelled,
+        }
+
+        impl #name {
+            pub fn start(#parameters) -> Self {
+                #name::#first_chunk_name(#(Some(#parameter_names)),*)
+            }
+        }
+
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
+        impl Freezable for #name {
+            type Output = #return_type;
+
+            fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
+                match self {
+                    #(#match_arms,)*
+                    #name::Finished => Err(FreezableError::AlreadyFinished),
+                    #name::Cancelled => Err(FreezableError::Cancelled),
+                }
+            }
+
+            fn cancel(&mut self) {
+                *self = #name::Cancelled
+            }
+
+            fn is_cancelled(&self) -> bool {
+                matches!(self, #name::Cancelled)
+            }
+
+            fn is_finished(&self) -> bool {
+                matches!(self, #name::Finished)
+            }
+        }
+    })
 }
