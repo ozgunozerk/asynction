@@ -65,9 +65,10 @@ impl Freezable for FreezableComplex {
                 Ok(FreezableState::Frozen(None))
             }
             FreezableComplex::Chunk3(mult_str) => {
-                let mut result = mult_str
+                let mult_str = mult_str
                     .take()
                     .expect("macro always puts value in the option");
+                let mut result = mult_str;
                 result.push_str(" a random text");
                 result.truncate(10);
                 *self = FreezableComplex::Finished;

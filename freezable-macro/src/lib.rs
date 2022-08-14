@@ -47,7 +47,7 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
 
         let mut code_chunks = vec![vec![]];
         let mut var_chunks = vec![vec![]]; // TODO: try complex types like `Vec<Vec<u8>>` in here, it may not be `Ident`
-        let mut to_be_returned: Vec<Vec<(Ident, Ident)>> = vec![vec![]];
+        let to_be_returned: Vec<Vec<Ident>> = vec![vec![]];
 
         if let Some(mut input_vars) = parse_parameters(&func) {
             var_chunks.last_mut().unwrap().append(&mut input_vars);
@@ -136,9 +136,11 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
                 fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
                     match self {
                         #(#match_arms),*,
+                        #name::Chunk3(a, _b, _c, _d, _e)=> a.unwrap(),
                         #name::Finished => Err(FreezableError::AlreadyFinished),
                         #name::Cancelled => Err(FreezableError::Cancelled),
                     }
+                    // todo!("not yet implemented");
                 }
 
 
@@ -255,20 +257,35 @@ fn generate_match_arms(
     variant_names: &[Variant],
     var_name_chunks: &[Vec<Ident>],
     code_chunks: &[Vec<proc_macro2::TokenStream>],
-    to_be_returned: &[Vec<(Ident, Ident)>],
+    to_be_returned: &[Vec<Ident>],
 ) -> Vec<proc_macro2::TokenStream> {
     let mut match_arms = vec![];
     for i in 0..variant_names.len() - 1 {
-        let cur_variant_name = variant_names[i].clone();
-        let next_variant_name = variant_names[i + 1].clone();
-        let cur_variable_names = var_name_chunks[i].clone();
-        let next_variable_names = var_name_chunks[i + 1].clone();
+        let cur_variant_name = &variant_names[i];
+        let next_variant_name = &variant_names[i + 1];
+        let cur_variable_names = &var_name_chunks[i];
+        let next_variable_names = &var_name_chunks[i + 1];
+        let cur_code_chunk = &code_chunks[i];
         match_arms.push(quote! {
             #name::#cur_variant_name(#(Some(#cur_variable_names)),*,) => {
+                #(let #cur_variable_names = #cur_variable_names.take().expect("value is always present"));*;
+                #(#cur_code_chunk);*;
                 *self = #name::#next_variant_name(#(Some(#next_variable_names)),*,);
                 Ok(FreezableState::Frozen(None))
             }
-        })
+        });
     }
+    let return_value = to_be_returned.last().unwrap();
+    let last_variant_name = variant_names.last().unwrap();
+    let last_variable_names = var_name_chunks.last().unwrap();
+    let last_code_chunk = code_chunks.last().unwrap();
+    match_arms.push(quote! {
+        #name::#last_variant_name(#(Some(#last_variable_names)),*,) => {
+            #(let #last_variable_names = #last_variable_names.take().expect("value is always present"));*;
+            #(#last_code_chunk);*;
+            *self = #name::Finished();
+            Ok(FreezableState::Finished(#(#return_value),*))
+        }
+    });
     match_arms
 }
