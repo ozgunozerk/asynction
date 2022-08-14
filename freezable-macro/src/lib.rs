@@ -29,6 +29,7 @@
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, parse_str, spanned::Spanned, Ident, Item, Variant};
 
@@ -41,13 +42,14 @@ pub fn freezable(args: TokenStream, input: TokenStream) -> TokenStream {
         .into()
 }
 
-fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
+fn freezable_2(input: Item) -> Result<TokenStream2, syn::Error> {
     if let Item::Fn(func) = input {
         let return_type = parse_return_type(&func);
 
         let mut code_chunks = vec![vec![]];
         let mut var_chunks = vec![vec![]]; // TODO: try complex types like `Vec<Vec<u8>>` in here, it may not be `Ident`
-        let to_be_returned: Vec<Vec<Ident>> = vec![vec![]];
+        let mut freeze_returns: Vec<TokenStream2> = vec![];
+        //let return_value;
 
         if let Some(mut input_vars) = parse_parameters(&func) {
             var_chunks.last_mut().unwrap().append(&mut input_vars);
@@ -68,7 +70,8 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
                 }
                 syn::Stmt::Semi(e, _t) => {
                     if quote!(#e).to_string().starts_with("freeze! (") {
-                        // TODO: parse whether there is something in `freeze!(...)` in here, and assign it to another `to_be_returned`
+                        let value = parse_freeze(e);
+                        freeze_returns.push(quote!(#value));
                         code_chunks.push(vec![]);
                         var_chunks.push(var_chunks.last().unwrap().clone());
                     } else {
@@ -111,7 +114,8 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
             &variant_names,
             &var_name_chunks,
             &code_chunks,
-            &to_be_returned,
+            &freeze_returns,
+            //&return_value,
         );
 
         Ok(quote! {
@@ -119,7 +123,7 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
 
             #[allow(non_camel_case_types)]
             pub enum #name {
-                #(#variants),*,
+                #(#variants,)*
                 Finished,
                 Cancelled,
             }
@@ -135,7 +139,7 @@ fn freezable_2(input: Item) -> Result<proc_macro2::TokenStream, syn::Error> {
 
                 fn unfreeze(&mut self) -> Result<FreezableState<Self::Output>, FreezableError> {
                     match self {
-                        #(#match_arms),*,
+                        #(#match_arms,)*
                         #name::Chunk3(a, _b, _c, _d, _e)=> a.unwrap(),
                         #name::Finished => Err(FreezableError::AlreadyFinished),
                         #name::Cancelled => Err(FreezableError::Cancelled),
@@ -256,9 +260,10 @@ fn generate_match_arms(
     name: &Ident,
     variant_names: &[Variant],
     var_name_chunks: &[Vec<Ident>],
-    code_chunks: &[Vec<proc_macro2::TokenStream>],
-    to_be_returned: &[Vec<Ident>],
-) -> Vec<proc_macro2::TokenStream> {
+    code_chunks: &[Vec<TokenStream2>],
+    freeze_returns: &[TokenStream2],
+    //return_value: &[Ident],
+) -> Vec<TokenStream2> {
     let mut match_arms = vec![];
     for i in 0..variant_names.len() - 1 {
         let cur_variant_name = &variant_names[i];
@@ -266,26 +271,51 @@ fn generate_match_arms(
         let cur_variable_names = &var_name_chunks[i];
         let next_variable_names = &var_name_chunks[i + 1];
         let cur_code_chunk = &code_chunks[i];
-        match_arms.push(quote! {
-            #name::#cur_variant_name(#(Some(#cur_variable_names)),*,) => {
-                #(let #cur_variable_names = #cur_variable_names.take().expect("value is always present"));*;
-                #(#cur_code_chunk);*;
-                *self = #name::#next_variant_name(#(Some(#next_variable_names)),*,);
-                Ok(FreezableState::Frozen(None))
-            }
-        });
+        let cur_freeze_return = &freeze_returns[i];
+
+        // interpolation of Some(5) -> evaluates to 5
+        // interpolation of None -> evaluates to nothing
+        // hence, the code should be manually written for an Option interpolation
+        if freeze_returns[i].is_empty() {
+            match_arms.push(quote! {
+                #name::#cur_variant_name(#(Some(#cur_variable_names),)*) => {
+                    #(let #cur_variable_names = #cur_variable_names.take().expect("value is always present");)*
+                    #(#cur_code_chunk);*;
+                    *self = #name::#next_variant_name(#(Some(#next_variable_names),)*);
+                    Ok(FreezableState::Frozen(None))
+                }
+            });
+        } else {
+            match_arms.push(quote! {
+                #name::#cur_variant_name(#(Some(#cur_variable_names),)*) => {
+                    #(let #cur_variable_names = #cur_variable_names.take().expect("value is always present");)*
+                    #(#cur_code_chunk);*;
+                    *self = #name::#next_variant_name(#(Some(#next_variable_names),)*);
+                    Ok(FreezableState::Frozen(Some(#cur_freeze_return)))
+                }
+            });
+        }
     }
-    let return_value = to_be_returned.last().unwrap();
+
     let last_variant_name = variant_names.last().unwrap();
     let last_variable_names = var_name_chunks.last().unwrap();
     let last_code_chunk = code_chunks.last().unwrap();
     match_arms.push(quote! {
         #name::#last_variant_name(#(Some(#last_variable_names)),*,) => {
-            #(let #last_variable_names = #last_variable_names.take().expect("value is always present"));*;
-            #(#last_code_chunk);*;
+            #(let #last_variable_names = #last_variable_names.take().expect("value is always present");)*
+            #(#last_code_chunk;)*
             *self = #name::Finished();
-            Ok(FreezableState::Finished(#(#return_value),*))
+            // Ok(FreezableState::Finished(#(#return_value),*))
+            Ok(FreezableState::Finished(#(#last_variable_names),*))
         }
     });
     match_arms
+}
+
+fn parse_freeze(e: &syn::Expr) -> TokenStream2 {
+    if let syn::Expr::Macro(a) = e {
+        a.mac.tokens.clone()
+    } else {
+        unreachable!()
+    }
 }
