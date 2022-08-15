@@ -66,7 +66,7 @@ fn complex_is_finished_test() {
         .iter_mut()
         .for_each(|instance: &mut freezable_complex| {
             instance.cancel();
-            assert_eq!(instance.is_finished(), false);
+            assert!(!instance.is_finished());
         });
     assert!(complex_5.is_finished());
 }
@@ -133,7 +133,7 @@ fn generator_is_finished_test() {
         .iter_mut()
         .for_each(|instance: &mut freezable_generator_4| {
             instance.cancel();
-            assert_eq!(instance.is_finished(), false);
+            assert!(!instance.is_finished());
         });
     assert!(generator_5.is_finished());
 }
