@@ -52,13 +52,21 @@ fn complex_cancel_test() {
 #[test]
 fn complex_is_finished_test() {
     let mut complex_5 = freezable_complex::start(5);
-    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
-    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
-    assert_eq!(complex_5.unfreeze(), Ok(FreezableState::Frozen(None)));
-    assert_eq!(
-        complex_5.unfreeze(),
-        Ok(FreezableState::Finished("24 a rando".to_string()))
-    );
+    let mut states = vec![];
+    while !complex_5.is_finished() {
+        states
+            .iter_mut()
+            .for_each(|instance: &mut freezable_complex| {
+                let _ = instance.unfreeze();
+            });
+        states.push(freezable_complex::start(5));
+        let _ = complex_5.unfreeze();
+    }
+    states
+        .iter_mut()
+        .for_each(|instance: &mut freezable_complex| {
+            assert!(!instance.is_finished());
+        });
     assert!(complex_5.is_finished());
 }
 
@@ -110,10 +118,21 @@ fn generator_cancel_test() {
 #[test]
 fn generator_is_finished_test() {
     let mut generator_5 = freezable_generator_4::start(5);
-    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(5))));
-    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(6))));
-    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Frozen(Some(7))));
-    assert_eq!(generator_5.unfreeze(), Ok(FreezableState::Finished(8)));
+    let mut states = vec![];
+    while !generator_5.is_finished() {
+        states
+            .iter_mut()
+            .for_each(|instance: &mut freezable_generator_4| {
+                let _ = instance.unfreeze();
+            });
+        states.push(freezable_generator_4::start(5));
+        let _ = generator_5.unfreeze();
+    }
+    states
+        .iter_mut()
+        .for_each(|instance: &mut freezable_generator_4| {
+            assert!(!instance.is_finished());
+        });
     assert!(generator_5.is_finished());
 }
 
