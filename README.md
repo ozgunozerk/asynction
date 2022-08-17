@@ -167,6 +167,12 @@ the tasks? One way to implement this is:
     extra thread, it can be the main thread as well
     - and have another thread that will listen to the signals sent by the OS, and somehow notify the
     executor about this, so that executor will know which task is available for further progress
+        - this is a great short summary I believe ([quoting](https://cfsamsonbooks.gitbook.io/epoll-kqueue-iocp-explained/appendix-1/reactor-executor-pattern)):
+
+          > In Rust a library like mio will be what drives the Reactor part. In Rust we have `Futures`
+          > which pass on a `Waker` to the Reactor. Instead of communicating directly with the Executor through
+          > a channel, the Reactor wil call `Waker.wake()` on the relevant `Waker` once an event is ready.
+
         - quoting from ****What does the “wake” phase require?**** part of this article: [https://boats.gitlab.io/blog/post/wakers-i/](https://boats.gitlab.io/blog/post/wakers-i/)
 
             > The final phase is the phase in which the wakers really do all of their work.
@@ -189,6 +195,12 @@ the tasks? One way to implement this is:
             > and poll as soon as they’re ready. The waker is itself a reference counted pointer to a
             > particular task, and when it is time to wake, it puts itself onto the executor’s queue.
             > In this case, the waker is represented as a reference counted pointer.
+
+    - since this is all too complicated, we will use a simpler approach:
+        - our `Executor` will send the names/ID's of the I/O resources we are waiting on to our `Reactor`
+        - our `Reactor` will listen to the OS notifications for these I/O resources
+        - if any notification arrives, our `Reactor` will then notify the `Executor` about these events.
+        - remember that, this is an oversimplification!
 
 </details>
 
