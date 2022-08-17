@@ -128,13 +128,17 @@ There are 3 approaches for that (Carl Fredrik Samson explained it better than I 
     the `yield` keyword is implemented ;)
 2. these freezable functions will put themselves to sleep (`freeze` themselves) at some specific points
 (network requests, read/writes, inputs from user, etc.). We need a mechanism to awake (`unfreeze`) them.
-Recall that the `async` concept is useful especially for I/O related tasks. So, the `async` functions we
-will write, will most probably wait on some low-level I/O tasks. And should only be awaken when the
-related I/O resource is ready.
+What are these specific points? These are I/O waits. Imagine an async function, that calls another async
+function, that calls a `leaf-future`. Now imagine the compiled code, all these functions will be expanded
+and became a single code piece. When shall this single code piece stop/freeze? When the requested I/O source
+is not ready. So, in the end, we will only stop for `leaf-futures`, or I/O resources (ok, also timers).
     - If we tell the OS that we are interested in specific events, it can notify us [https://cfsamson.github.io/book-exploring-async-basics/4_interrupts_firmware_io.html](https://cfsamson.github.io/book-exploring-async-basics/4_interrupts_firmware_io.html)
-        - What happens in a very brief summary is: your I/O request is relayed to the related component
-        (for example, if you requested to fetch a website, the request is relayed to your network card).
-        - The network card has a microcontroller in it, so it probably does some polling to check if there
+        - Here is a a very brief summary of what is going on: your I/O request is relayed to the related
+        hardware component (for example, if you requested to fetch the contents of a website, the request
+        is relayed to your network card).
+        - So, calling a `fetch_website` function, which calls a more low-level function, which calls an even
+        more low-level function, and inevitably a `leaf-future` that is related to sockets and network.
+        - The network card has a micro-controller in it, so it probably does some polling to check if there
         is any answer present from the server. When there is, it notifies the OS. And then OS interrupts the
         CPU with a message: “this resource is now ready”.
         - If you can imagine, this whole OS part is another rabbit hole. If we want to implement our own
@@ -161,7 +165,7 @@ related I/O resource is ready.
         - send our task’s ID (in place of some I/O resource subscription) to this thread (the OS)
         - and the OS will just wait for some random time, and then notify us that the requested resource
         (ID for our case) is ready.
-3. We covered the communication part with the OS. But how will the rest work? Who will awake (`unfreeze`)
+1. We covered the communication part with the OS. But how will the rest work? Who will awake (`unfreeze`)
 the tasks? One way to implement this is:
     - have a thread (executor) that will run the these async tasks. Btw, this does not have to be an
     extra thread, it can be the main thread as well
