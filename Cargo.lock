@@ -97,6 +97,8 @@ dependencies = [
 name = "runtime"
 version = "0.1.0"
 dependencies = [
+ "freezable",
+ "freezable-macro",
  "rand",
 ]
 

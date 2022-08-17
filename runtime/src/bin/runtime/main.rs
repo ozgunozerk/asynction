@@ -1,31 +1,38 @@
+use runtime::simulate_os;
+use runtime::start_executor;
+use runtime::start_reactor;
+
+use freezable::Freezable;
+use freezable::FreezableComplex;
+use std::sync::mpsc;
+use std::thread;
+
 fn main() {
-    println!("Hello, world!");
+    #[cfg(feature = "printable_complex_example")]
+    {
+        let mut async_task1 = FreezableComplex::start(3);
+        let _ = async_task1.unfreeze();
+        let async_task2 = FreezableComplex::start(7);
+        let async_task3 = FreezableComplex::start(12);
+        let mut tasks = vec![async_task1, async_task2, async_task3];
 
-    // algorithm to simulate os:
-    // have a thread listening to incoming tasks with 100 ms delay in a continuous loop
-    // each task will come with an identifier
-    // using this identifier, generate a random number
-    // this random number will be the necessary amount of time for the completion of this task
-    // we do not need to `sleep` explicitly for that necessary amount of time
-    // we can just check how much time is passed
-    // since we will be waiting 100ms in each loop iteration, we can just add these 100ms in a counter
-    // and store the value of counter when a task arrives in a variable
-    // then add the necessary time for completion to the current value of counter
-    // store this time of completion in an array along with the identifier of the task
-    // (array, because there might be multiple tasks)
-    // for each iteration of the loop, check this array
-    // if the counter is >= than any of the time values in there:
-    // notify the waker about the task by sending the tasks ID via a channel
+        let (subscription_sender, subscription_recv) = mpsc::channel();
+        let (notification_sender, notification_recv) = mpsc::channel();
+        let (event_sender, event_recv) = mpsc::channel();
+        let (awake_signal_sender, awake_signal_recv) = mpsc::channel();
 
-    // algorithm to simulate reactor (waker):
-    // this also will be a thread on its own
-    // when a new freezable is created, its identity should be available to the waker
-    // so that the waker will send this identity to the OS, and wait for a signal from OS
-    // this signal should be sent to the waker along with the identity of the task
-    // then the waker should turn the `pending` state into `canContinue` for the task
+        thread::spawn(|| simulate_os(notification_sender, subscription_recv));
+        thread::spawn(|| {
+            start_reactor(
+                event_recv,
+                awake_signal_sender,
+                subscription_sender,
+                notification_recv,
+            )
+        });
 
-    // for now, there won't be an executor, we will simulate the executor with a loop
-    // in the loop, check for the state of each freezable task, and call `unfreeze()` on those
-    // who are in `canContinue` state.
-    // When all the tasks are either `finished` or `cancelled`, stop the loop
+        start_executor(&mut tasks, event_sender, awake_signal_recv);
+
+        assert!(tasks.iter().all(|task| task.is_finished()));
+    }
 }

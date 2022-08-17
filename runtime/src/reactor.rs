@@ -2,15 +2,25 @@ use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{thread, time};
 
-/// simulates a Reactor
+/// simulates the `Reactor`
 ///
 /// gets the events that we are awaiting on from the `Executor`, and subscribes to necessary
 /// I/O events on the OS side. When the OS notifies the `Reactor` on some events/resource being ready,
-/// the Reactor then sends IDs of the corresponding ready tasks to the Executor
+/// the Reactor then notifies the `Executor` about these.
 ///
 /// `event` and `resource` corresponds to the same thing,
 /// but we will use `event` for the communication between `executor` <-> `reactor`
 /// and `resource` between `reactor` <-> `OS`
+///
+/// in this example, the `Reactor` may not make much sense because of all the simplifications we made
+/// the `Executor` could to the job of `Reactor` as well. So why did I put `Reactor` in here?
+/// Because in practice, the `Reactor` is very useful (unlike this example). And I believe this example
+/// will make it much more easier to understand the real `Reactor`.
+///
+/// in practice, the `Reactor` will listen to the OS for the notifications
+/// and then call the `Waker.wake()` on the relevant tasks, making them ready to be polled for the `Executor`
+/// refer to the Readme for details
+
 pub fn start_reactor(
     event_recv: Receiver<u8>,
     awake_signal_sender: Sender<u8>,

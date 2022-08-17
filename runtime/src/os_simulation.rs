@@ -18,12 +18,10 @@ pub fn simulate_os(notification_sender: Sender<u8>, subscription_recv: Receiver<
         // that's why, keep the loop short
         if let Ok(resource_id) = subscription_recv.try_recv() {
             // if resource id is new
-            if !resource_map.contains_key(&resource_id) {
+            resource_map.entry(resource_id).or_insert_with(|| {
                 let turns: u8 = rng.gen_range(1..10); // how many turns (100 milliseconds) does this resource take to be ready
-                resource_map
-                    .entry(resource_id)
-                    .or_insert(current_turn + turns);
-            }
+                current_turn + turns
+            });
         }
         // for each resource that is ready, send the notification
         let mut to_be_removed: Vec<u8> = vec![];

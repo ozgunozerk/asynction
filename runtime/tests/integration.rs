@@ -1,6 +1,9 @@
 use runtime::simulate_os;
+use runtime::start_executor;
 use runtime::start_reactor;
 
+use freezable::Freezable;
+use freezable::FreezableComplex;
 use rand::Rng;
 use std::collections::HashSet;
 use std::sync::mpsc;
@@ -70,4 +73,30 @@ fn reactor_and_os_simulation() {
     }
 
     assert!(event_set.is_empty())
+}
+
+#[test]
+fn executor_reactor_and_os_simulation() {
+    let async_task1 = FreezableComplex::start(3);
+    let async_task2 = FreezableComplex::start(7);
+    let mut tasks = vec![async_task1, async_task2];
+
+    let (subscription_sender, subscription_recv) = mpsc::channel();
+    let (notification_sender, notification_recv) = mpsc::channel();
+    let (event_sender, event_recv) = mpsc::channel();
+    let (awake_signal_sender, awake_signal_recv) = mpsc::channel();
+
+    thread::spawn(|| simulate_os(notification_sender, subscription_recv));
+    thread::spawn(|| {
+        start_reactor(
+            event_recv,
+            awake_signal_sender,
+            subscription_sender,
+            notification_recv,
+        )
+    });
+
+    start_executor(&mut tasks, event_sender, awake_signal_recv);
+
+    assert!(tasks.iter().all(|task| task.is_finished()));
 }
