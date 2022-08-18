@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{thread, time};
 
-/// simulates the os via waiting for a random amount of time for the requested resource,
-/// then notifies the subscriber on the awaited resource
+/// Simulates the os via waiting for a random amount of time for the requested resource,
+/// then notifies the subscriber on the awaited resource.
 pub fn simulate_os(notification_sender: Sender<u8>, subscription_recv: Receiver<u8>) {
     let mut rng = rand::thread_rng();
     let mut current_turn = 0;

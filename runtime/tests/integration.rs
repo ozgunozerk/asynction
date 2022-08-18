@@ -1,9 +1,8 @@
-use runtime::simulate_os;
-use runtime::start_executor;
-use runtime::start_reactor;
+use runtime::{runtime, simulate_os, start_executor, start_reactor};
 
-use freezable::Freezable;
-use freezable::FreezableComplex;
+use freezable::FreezableGenerator4;
+use freezable::{Freezable, FreezableError, FreezableState};
+use freezable_macro::freezable;
 use rand::Rng;
 use std::collections::HashSet;
 use std::sync::mpsc;
@@ -77,9 +76,10 @@ fn reactor_and_os_simulation() {
 
 #[test]
 fn executor_reactor_and_os_simulation() {
-    let async_task1 = FreezableComplex::start(3);
-    let async_task2 = FreezableComplex::start(7);
-    let mut tasks = vec![async_task1, async_task2];
+    let async_task1 = FreezableGenerator4::start(3);
+    let async_task2 = FreezableGenerator4::start(7);
+    let async_task3 = FreezableGenerator4::start(10);
+    let mut tasks = vec![async_task1, async_task2, async_task3];
 
     let (subscription_sender, subscription_recv) = mpsc::channel();
     let (notification_sender, notification_recv) = mpsc::channel();
@@ -97,6 +97,30 @@ fn executor_reactor_and_os_simulation() {
     });
 
     start_executor(&mut tasks, event_sender, awake_signal_recv);
+
+    assert!(tasks.iter().all(|task| task.is_finished()));
+}
+
+#[test]
+fn runtime_with_macro() {
+    #[freezable]
+    fn freezable_generator_4(begin: u8) -> u8 {
+        let mut next: u8 = begin;
+        freeze!(next); // freezes the function, but also return the partial result
+        next += 1;
+        freeze!(next);
+        next += 1;
+        freeze!(next);
+        next += 1;
+        next
+    }
+
+    let async_task1 = freezable_generator_4::start(3);
+    let async_task2 = freezable_generator_4::start(7);
+    let async_task3 = freezable_generator_4::start(12);
+    let mut tasks = vec![async_task1, async_task2, async_task3];
+
+    runtime(&mut tasks);
 
     assert!(tasks.iter().all(|task| task.is_finished()));
 }

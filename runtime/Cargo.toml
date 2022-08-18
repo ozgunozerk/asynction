@@ -11,5 +11,4 @@ freezable-macro = { version = "0.1.0", path = "../freezable-macro"}
 rand = "0.8.5"
 
 [features]
-default = ["printable_complex_example"]
-printable_complex_example = []
+printable_states = []
