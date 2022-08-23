@@ -1,0 +1,14 @@
+[package]
+name = "runtime"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+freezable = { version = "0.1.0", path = "../freezable"}
+freezable-macro = { version = "0.1.0", path = "../freezable-macro"}
+rand = "0.8.5"
+
+[features]
+printable_states = []

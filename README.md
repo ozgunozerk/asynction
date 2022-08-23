@@ -4,14 +4,100 @@ This repository is for revealing the magic of the `async` functions.
 It tries to uncover every single secret of the `async` concept.
 
 If you are thinking that:
-***There are already some async libraries out there, that is working pretty well. What is the purpose of this one?***
+***There are already some async libraries out there, that is working pretty well.***
+***What is the purpose of this one?***
 
 The answer is: this library is not for re-implementing the async world. It is to show what is going on
 behind the scenes in the simplest way possible. This project won't be a 3rd party library. It is a working
-demo of the async world, including all the concepts. Since the goal is to demystify all the concepts
+demo of the async world. Since the goal is to demystify all the concepts
 related to the async world, we won't be using any 3rd party library, and also nothing magical from the
-standart library. There won't be any `tokio`, `mio`, `future`, `async`...
+standard library. There won't be any `tokio`, `mio`, `future`, `async`...
 We are only allowed to use basic synchronous code in this project.
+
+
+## Sneak peak at the result we are achieving with this library:
+<details><summary>Click to expand!</summary>
+
+The below example is a good demonstration of we were able to run interruptible functions in an asynchronous
+context, and did it from scratch (without using any `async`, `yield`, `future`, or any other magical thing)!
+
+You can supply your own function (which will be turned into it's async version via `freezable-macro`),
+and use it in the main example if you want!
+
+Example output:
+```
+--------------
+STATE OF THE TASK #0: frozen in state: 1, with value: 10
+STATE OF THE TASK #1: frozen in state: 1, with value: 20
+STATE OF THE TASK #2: frozen in state: 1, with value: 30
+---------
+for the task #0, requesting the I/O resource: 8
+for the task #1, requesting the I/O resource: 41
+for the task #2, requesting the I/O resource: 70
+---------
+The I/O resource: 41, is now ready!
+Calling unfreeze on task #1
+STATE OF THE TASK #1: frozen in state: 2, with value: 21
+---------
+for the task #1, requesting the I/O resource: 74
+---------
+The I/O resource: 8, is now ready!
+Calling unfreeze on task #0
+STATE OF THE TASK #0: frozen in state: 2, with value: 11
+---------
+for the task #0, requesting the I/O resource: 26
+---------
+The I/O resource: 26, is now ready!
+Calling unfreeze on task #0
+STATE OF THE TASK #0: frozen in state: 3, with value: 12
+---------
+for the task #0, requesting the I/O resource: 124
+---------
+The I/O resource: 74, is now ready!
+Calling unfreeze on task #1
+STATE OF THE TASK #1: frozen in state: 3, with value: 22
+---------
+for the task #1, requesting the I/O resource: 74
+---------
+The I/O resource: 70, is now ready!
+Calling unfreeze on task #2
+STATE OF THE TASK #2: frozen in state: 2, with value: 31
+---------
+for the task #2, requesting the I/O resource: 101
+---------
+The I/O resource: 124, is now ready!
+Calling unfreeze on task #0
+STATE OF THE TASK #0: Finished!
+---------
+---------
+The I/O resource: 74, is now ready!
+Calling unfreeze on task #1
+STATE OF THE TASK #1: Finished!
+---------
+---------
+The I/O resource: 101, is now ready!
+Calling unfreeze on task #2
+STATE OF THE TASK #2: frozen in state: 3, with value: 32
+---------
+for the task #2, requesting the I/O resource: 144
+---------
+The I/O resource: 144, is now ready!
+Calling unfreeze on task #2
+STATE OF THE TASK #2: Finished!
+---------
+---------
+all tasks are finished!
+```
+
+**in the above example:**
+
+*being awaited I/O resource queue: [8, 41, 70, 74, 26, 124, 74, 101, 144]*
+
+*became ready I/O resource queue: [41, 8, 26, 74, 70, 124, 74, 101, 144]*
+
+</details>
+
+---
 
 I prepared a short summary of what is happening when you use the `async` keyword, and how your function is
 actually put to sleep and is awaken again. Considering that I've watched 15+ hours of video, and read countless pages
@@ -26,9 +112,9 @@ find that will answer your questions about async) of what is actually happening,
 
 ### Async
 
-***The Main problem:*** *we have some I/O related tasks in our hand (network, file read, etc.).**
-**And we don’t want our code to sit idly while waiting for this I/O task to finish.**
-**It should be able to continue doing some other work while waiting for the result of the I/O task at hand.**
+**The Main problem:** *we have some I/O related tasks in our hand (network, file read, etc.).*
+*And we don’t want our code to sit idly while waiting for this I/O task to finish.*
+*It should be able to continue doing some other work while waiting for the result of the I/O task at hand.*
 
 There are 3 approaches for that (Carl Fredrik Samson explained it better than I can, so quoting from his [book](https://cfsamson.github.io/book-exploring-async-basics/5_strategies_for_handling_io.html)):
 
@@ -141,14 +227,14 @@ is not ready. So, in the end, we will only stop for `leaf-futures`, or I/O resou
         - The network card has a micro-controller in it, so it probably does some polling to check if there
         is any answer present from the server. When there is, it notifies the OS. And then OS interrupts the
         CPU with a message: “this resource is now ready”.
-        - If you can imagine, this whole OS part is another rabbit hole. If we want to implement our own
+        - As you probably guessed already, this OS part is another rabbit hole. If we want to implement our own
         functions that can communicate with OS, we will have to dive into specific signal/flags that each
         OS use.
         - On top of that, each operating system has a different strategy for this notification system
         (for example: Epoll for linux, Kqueue for BSD(macOS), and IOCP for Windows). Each will require a
         different implementation on our side.
-        - This is all too low-level, and implementing this is whole another project
-        (`[mio](https://github.com/tokio-rs/mio)`). I don’t think doing that will help demystify
+        - This is all too low-level, and implementing this would be a whole another project
+        ([`mio`](https://github.com/tokio-rs/mio)). I don’t think doing that will help demystify
         the `async` concept, and we will be diverging from our main point. If you insist on learning
         the details of OS communication, read the above link and all the OS related chapters in there,
         and then you might dive into `mio` project.
@@ -162,12 +248,11 @@ is not ready. So, in the end, we will only stop for `leaf-futures`, or I/O resou
     can stop a function, and with a signal from the OS, we can continue on this function. So we can do
     this instead:
         - spawn a thread, that will be the simulation of the OS
-        - send our task’s ID (in place of some I/O resource subscription) to this thread (the OS)
-        - and the OS will just wait for some random time, and then notify us that the requested resource
-        (ID for our case) is ready.
+        - send the subscribed I/O resource ID to the (in place of some I/O resource subscription) to this thread (the OS)
+        - and the OS will just wait for some random time, and then notify us that the requested resource is ready.
 1. We covered the communication part with the OS. But how will the rest work? Who will awake (`unfreeze`)
 the tasks? One way to implement this is:
-    - have a thread (executor) that will run the these async tasks. Btw, this does not have to be an
+    - have a thread (`executor`) that will run the these async tasks. Btw, this does not have to be an
     extra thread, it can be the main thread as well
     - and have another thread that will listen to the signals sent by the OS, and somehow notify the
     executor about this, so that executor will know which task is available for further progress
@@ -213,8 +298,7 @@ the tasks? One way to implement this is:
 <br>
 <br>
 
-We won't be diving into assembly or machine code, but we will not use any 3rd party library,
-and implement every magical thing from scratch, including:
+We will not use any 3rd party library, and implement every magical thing from scratch, including:
 - the types/traits:
   - `Futures`,
   - `Generators`,
@@ -232,24 +316,23 @@ and implement every magical thing from scratch, including:
 
 ## The Roadmap:
 1. Implement `Freezable`:
-   1. The most important ability of the `async` world is: being able to stop a function, and continue from where we left off.
+   - The most important ability of the `async` world is: being able to stop a function, and continue from where we left off.
    Async functions are able to do this, via `Generators`. And `Generators` are able to do this via the `yield` keyword.
    So we should implement a library, that will demonstrate how we can `freeze` a function,
    and continue to it when we feel like it.
-   1. We will see that, we can write a `freezable` function. But in order to make another person's function turn into a
+   - We will see that, we can write a `freezable` function. But in order to make another person's function turn into a
    `freezable` function, we will have to write a code, that should write a code for us. So, the next step is:
    *write a macro, that will turn the given function into a `freezable` function*.
 2. Implement a `Reactor` and an `Executor`
-   1. Now, our `freezable` functions are ready to use, but in the async world,
+   - Now, our `freezable` functions are ready to use, but in the async world,
    we are not continuing our functions when we please to.
    They are being *frozen* when the IO resource is not ready, and getting *awaken* when that resource is ready.
-   1. simulate the OS with an external thread, since dealing with OS's and IO's are whole another project
+   - simulate the OS with an external thread, since dealing with OS's and IO's are whole another project
    on its own, [`mio`](https://github.com/tokio-rs/mio) (details are discussed below).
-   1. implement a `Reactor` that will listen to the signals of the OS, and can relay the information
+   - implement a `Reactor` that will listen to the signals of the OS, and can relay the information
    to the `Executor` about which task should be polled next.
-   1. write another macro, that can poll, and continue on many `freezable` tasks in a single thread.
-   This will be our `Executor`, which will try to call `unfreeze()` on the the tasks that are told
-   by the `Reactor`
+   - implement an `Executor` which will try to call `unfreeze()` on the the tasks that are told by the
+   `Reactor`, and continue on many `freezable` tasks in a single thread.
 
 
 
