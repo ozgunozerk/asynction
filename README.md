@@ -1,5 +1,16 @@
 # Asynction
 
+***Have you ever wondered: how can async functions stop at an `await` point, and then we are able to continue from that await point?***
+well, me too!
+
+This is interesting, because it sounds like this is impossible to achieve with synchronous code. The `async/await` keywords will compile down to some `synchronous` instructions in the end... 
+
+If we want to stop a function, the only way to get out is: to `return` from it. But when we `return`, we lose all the stack/info about the function. 
+
+*So, how do we **stop** a function at some point, and **continue** from where we left off? This is what `async` functions are all about, right?*
+
+---
+
 This repository is for revealing the magic of the `async` functions.
 It tries to uncover every single secret of the `async` concept.
 
