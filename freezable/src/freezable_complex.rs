@@ -33,7 +33,10 @@ pub enum FreezableComplex {
     Chunk0(u8),
     Chunk1(u8),
     Chunk2(u8, u8),
-    Chunk3(Option<String>), // `Option` is used as a trick to get the ownership of the `String`, to eliminate unnecessary `clone()` calls
+    Chunk3(Option<String>), // `Option` is used as a trick to get the ownership of the `String`,
+    // to eliminate unnecessary `clone()` calls
+    // an alternative would be `mem::take()`, but then we would require the inner type to implement `default`
+    // which may not always be the case. `mem::replace()` is making the code more complex
     Finished,
     Cancelled,
 }
